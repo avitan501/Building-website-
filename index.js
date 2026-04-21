@@ -27,8 +27,8 @@ function readSiteConfig() {
   return {
     title: typeof parsed.title === 'string' ? parsed.title : 'Personal AI Dashboard',
     subtitle: typeof parsed.subtitle === 'string' ? parsed.subtitle : 'האתר שלי מנוהל דרך טלגרם',
-    bg: typeof parsed.bg === 'string' ? parsed.bg : '#111111',
-    text: typeof parsed.text === 'string' ? parsed.text : '#f5f5f5',
+    bg: typeof parsed.bg === 'string' ? parsed.bg : '#0b1020',
+    text: typeof parsed.text === 'string' ? parsed.text : '#e5e7eb',
     sections: Array.isArray(parsed.sections) ? parsed.sections : [],
     pages: parsed.pages && typeof parsed.pages === 'object' ? parsed.pages : {}
   };
@@ -51,9 +51,43 @@ function normalizeSlug(value) {
     .replace(/^-+|-+$/g, '');
 }
 
+function formatMultiline(value) {
+  return escapeHtml(value || '').replace(/\n/g, '<br>');
+}
+
+function getPageEntries(siteConfig) {
+  return Object.entries(siteConfig.pages || {}).map(([slug, page]) => ({
+    slug,
+    title: typeof page?.title === 'string' ? page.title : slug,
+    content: typeof page?.content === 'string' ? page.content : ''
+  }));
+}
+
+function renderNav(siteConfig) {
+  const pageLinks = getPageEntries(siteConfig)
+    .slice(0, 4)
+    .map(page => `<a href="/${encodeURIComponent(page.slug)}">${escapeHtml(page.title)}</a>`)
+    .join('');
+
+  return `
+    <header class="topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark">✦</span>
+        <span>${escapeHtml(siteConfig.title)}</span>
+      </a>
+      <nav class="nav">
+        <a href="/">Home</a>
+        ${pageLinks}
+        <a href="/messages">Messages</a>
+        <a href="/tasks">Tasks</a>
+      </nav>
+    </header>
+  `;
+}
+
 function renderLayout(pageTitle, body, siteConfig) {
   return `
-    <html>
+    <html lang="he">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -62,90 +96,306 @@ function renderLayout(pageTitle, body, siteConfig) {
           :root {
             --bg: ${escapeHtml(siteConfig.bg)};
             --text: ${escapeHtml(siteConfig.text)};
-            --card: rgba(15, 23, 42, 0.78);
+            --card: rgba(15, 23, 42, 0.82);
+            --card-strong: rgba(15, 23, 42, 0.94);
             --border: rgba(148, 163, 184, 0.18);
             --accent: #8b5cf6;
+            --accent-strong: #7c3aed;
             --accent-soft: rgba(139, 92, 246, 0.18);
+            --muted: rgba(226, 232, 240, 0.72);
+            --shadow: 0 20px 60px rgba(2, 6, 23, 0.42);
           }
           * {
             box-sizing: border-box;
           }
+          html {
+            scroll-behavior: smooth;
+          }
           body {
             margin: 0;
             font-family: Inter, Arial, sans-serif;
-            padding: 32px 20px;
             background:
-              radial-gradient(circle at top, rgba(139, 92, 246, 0.22), transparent 30%),
+              radial-gradient(circle at top, rgba(139, 92, 246, 0.22), transparent 28%),
               linear-gradient(180deg, #111827 0%, var(--bg) 55%, #050816 100%);
             color: var(--text);
             min-height: 100vh;
           }
-          .container {
-            width: 100%;
-            max-width: 920px;
-            margin: 0 auto;
-          }
-          h1, h2 {
-            color: var(--text);
-            margin-top: 0;
-          }
-          h1 {
-            font-size: clamp(2.2rem, 5vw, 3.4rem);
-            margin-bottom: 10px;
-          }
-          h2 {
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-          }
-          p, li {
-            line-height: 1.7;
-          }
-          .subtitle {
-            color: rgba(229, 231, 235, 0.78);
-            margin-top: -2px;
-            margin-bottom: 26px;
-            font-size: 1.05rem;
-          }
-          .box {
-            background: var(--card);
-            border: 1px solid var(--border);
-            backdrop-filter: blur(14px);
-            padding: 20px;
-            margin: 14px 0;
-            border-radius: 18px;
-            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
-          }
           a {
-            color: #c4b5fd;
+            color: inherit;
             text-decoration: none;
           }
-          a:hover {
-            color: #ddd6fe;
+          .container {
+            width: min(1120px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 24px 0 40px;
           }
-          ul {
-            padding-inline-start: 20px;
+          .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 18px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(16px);
+            box-shadow: var(--shadow);
+            margin-bottom: 22px;
+            position: sticky;
+            top: 16px;
+            z-index: 20;
           }
-          .box p:last-child,
-          .box ul:last-child {
-            margin-bottom: 0;
+          .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
           }
-          .pill {
+          .brand-mark {
+            display: inline-grid;
+            place-items: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent), #22d3ee);
+            color: white;
+            box-shadow: 0 12px 30px rgba(124, 58, 237, 0.35);
+          }
+          .nav {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 10px;
+          }
+          .nav a {
+            color: var(--muted);
+            padding: 9px 12px;
+            border-radius: 999px;
+            transition: 0.2s ease;
+          }
+          .nav a:hover {
+            color: var(--text);
+            background: rgba(148, 163, 184, 0.12);
+          }
+          .hero {
+            padding: 36px;
+            margin-bottom: 22px;
+            background:
+              linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(34, 211, 238, 0.08)),
+              var(--card-strong);
+          }
+          .eyebrow {
             display: inline-block;
-            padding: 6px 10px;
+            padding: 7px 12px;
             border-radius: 999px;
             background: var(--accent-soft);
             color: #ddd6fe;
             font-size: 0.88rem;
             margin-bottom: 14px;
           }
+          .hero h1,
+          .page-header h1 {
+            margin: 0 0 10px;
+            font-size: clamp(2.2rem, 4vw, 4rem);
+            line-height: 1.05;
+          }
+          .subtitle,
+          .lead,
+          .muted {
+            color: var(--muted);
+          }
+          .lead {
+            max-width: 760px;
+            font-size: 1.05rem;
+            line-height: 1.8;
+          }
+          .hero-actions,
+          .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 24px;
+          }
+          .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 18px;
+            border-radius: 14px;
+            border: 1px solid transparent;
+            font-weight: 600;
+            transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+          }
+          .btn:hover {
+            transform: translateY(-1px);
+          }
+          .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+            color: white;
+            box-shadow: 0 18px 35px rgba(124, 58, 237, 0.28);
+          }
+          .btn-secondary {
+            background: rgba(148, 163, 184, 0.1);
+            border-color: var(--border);
+            color: var(--text);
+          }
+          .grid,
+          .stats-grid,
+          .page-grid {
+            display: grid;
+            gap: 16px;
+          }
+          .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            margin-bottom: 22px;
+          }
+          .grid,
+          .page-grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+          }
+          .section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin: 30px 0 14px;
+          }
+          .section-title h2 {
+            margin: 0;
+            font-size: 1.25rem;
+          }
+          .box,
+          .stat-card,
+          .page-card,
+          .list-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 22px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(14px);
+          }
+          .stat-card strong {
+            display: block;
+            font-size: 2rem;
+            margin-bottom: 6px;
+          }
+          .page-card h3,
+          .box h3,
+          .list-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.08rem;
+          }
+          .page-card p,
+          .box p,
+          .list-card p,
+          li {
+            line-height: 1.75;
+          }
+          .list-clean {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 12px;
+          }
+          .list-item {
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(148, 163, 184, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.08);
+          }
+          .footer {
+            margin-top: 28px;
+            padding: 22px 0 10px;
+            color: rgba(226, 232, 240, 0.56);
+            font-size: 0.95rem;
+          }
+          .empty {
+            color: var(--muted);
+          }
+          @media (max-width: 760px) {
+            .topbar {
+              position: static;
+              padding: 16px;
+            }
+            .container {
+              width: min(100% - 20px, 1120px);
+              padding-top: 18px;
+            }
+            .hero,
+            .box,
+            .stat-card,
+            .page-card,
+            .list-card {
+              padding: 18px;
+            }
+          }
         </style>
       </head>
       <body>
         <main class="container">
+          ${renderNav(siteConfig)}
           ${body}
+          <footer class="footer">Built with OpenClaw and deployed from Telegram.</footer>
         </main>
       </body>
     </html>
+  `;
+}
+
+function renderSections(siteConfig) {
+  const sections = siteConfig.sections || [];
+  if (!sections.length) {
+    return '<div class="box empty">אין עדיין אזורים בעמוד הראשי.</div>';
+  }
+
+  return `<div class="grid">${sections.map(section => {
+    if (typeof section === 'string') {
+      return `<article class="box"><h3>${escapeHtml(section)}</h3></article>`;
+    }
+
+    const title = escapeHtml(section.title || 'Section');
+    const content = formatMultiline(section.content || '');
+    const slug = typeof section.slug === 'string' ? section.slug : normalizeSlug(section.title);
+    const pageLink = slug && siteConfig.pages[slug]
+      ? `<div class="actions"><a class="btn btn-secondary" href="/${encodeURIComponent(slug)}">Open page</a></div>`
+      : '';
+
+    return `
+      <article class="box">
+        <h3>${title}</h3>
+        <p class="muted">${content}</p>
+        ${pageLink}
+      </article>
+    `;
+  }).join('')}</div>`;
+}
+
+function renderPageCards(siteConfig) {
+  const pages = getPageEntries(siteConfig);
+  if (!pages.length) return '';
+
+  return `
+    <section>
+      <div class="section-title">
+        <h2>Pages</h2>
+        <span class="muted">${pages.length} available</span>
+      </div>
+      <div class="page-grid">
+        ${pages.map(page => `
+          <article class="page-card">
+            <h3>${escapeHtml(page.title)}</h3>
+            <p class="muted">${formatMultiline(page.content.slice(0, 140))}</p>
+            <div class="actions">
+              <a class="btn btn-secondary" href="/${encodeURIComponent(page.slug)}">Open page</a>
+            </div>
+          </article>
+        `).join('')}
+      </div>
+    </section>
   `;
 }
 
@@ -153,78 +403,102 @@ app.get('/', (req, res) => {
   const siteConfig = readSiteConfig();
   const messages = readJsonArray(messagesFile);
   const tasks = readJsonArray(tasksFile);
-
-  const sectionsHtml = siteConfig.sections.map(section => {
-    if (typeof section === 'string') {
-      return `<div class="box"><h2>${escapeHtml(section)}</h2></div>`;
-    }
-
-    const title = escapeHtml(section.title || 'Section');
-    const content = escapeHtml(section.content || '');
-    const slug = typeof section.slug === 'string' ? section.slug : normalizeSlug(section.title);
-    const pageLink = slug && siteConfig.pages[slug]
-      ? `<p><a href="/${encodeURIComponent(slug)}">Open page</a></p>`
-      : '';
-
-    return `
-      <div class="box">
-        <h2>${title}</h2>
-        <p>${content}</p>
-        ${pageLink}
-      </div>
-    `;
-  }).join('');
+  const pages = getPageEntries(siteConfig);
+  const primaryPage = pages[0];
+  const secondaryPage = pages[1];
 
   res.send(renderLayout(siteConfig.title, `
-    <h1>${escapeHtml(siteConfig.title)}</h1>
-    <p class="subtitle">${escapeHtml(siteConfig.subtitle)}</p>
+    <section class="box hero">
+      <span class="eyebrow">Professional website</span>
+      <h1>${escapeHtml(siteConfig.title)}</h1>
+      <p class="subtitle">${escapeHtml(siteConfig.subtitle)}</p>
+      <p class="lead">אתר מקצועי, מהיר ונקי עם עמודים דינמיים, ניהול דרך טלגרם ופריסה אוטומטית בלחיצה אחת.</p>
+      <div class="hero-actions">
+        ${primaryPage ? `<a class="btn btn-primary" href="/${encodeURIComponent(primaryPage.slug)}">${escapeHtml(primaryPage.title)}</a>` : ''}
+        ${secondaryPage ? `<a class="btn btn-secondary" href="/${encodeURIComponent(secondaryPage.slug)}">${escapeHtml(secondaryPage.title)}</a>` : '<a class="btn btn-secondary" href="/messages">Open dashboard</a>'}
+      </div>
+    </section>
 
-    ${sectionsHtml || '<div class="box"><p>No sections yet</p></div>'}
+    <section class="stats-grid">
+      <article class="stat-card">
+        <span class="muted">Pages</span>
+        <strong>${pages.length}</strong>
+        <span class="muted">Live site pages</span>
+      </article>
+      <article class="stat-card">
+        <span class="muted">Sections</span>
+        <strong>${siteConfig.sections.length}</strong>
+        <span class="muted">Homepage content blocks</span>
+      </article>
+      <article class="stat-card">
+        <span class="muted">Messages</span>
+        <strong>${messages.length}</strong>
+        <span class="muted">Incoming items</span>
+      </article>
+      <article class="stat-card">
+        <span class="muted">Tasks</span>
+        <strong>${tasks.length}</strong>
+        <span class="muted">Tracked actions</span>
+      </article>
+    </section>
 
-    <div class="box">
-      <h2>📩 Messages</h2>
-      <p>Total: ${messages.length}</p>
-      <p><a href="/messages">Open messages</a></p>
-    </div>
+    <section>
+      <div class="section-title">
+        <h2>Homepage sections</h2>
+        <span class="muted">Curated content blocks</span>
+      </div>
+      ${renderSections(siteConfig)}
+    </section>
 
-    <div class="box">
-      <h2>✅ Tasks</h2>
-      <p>Total: ${tasks.length}</p>
-      <p><a href="/tasks">Open tasks</a></p>
-    </div>
+    ${renderPageCards(siteConfig)}
   `, siteConfig));
 });
 
 app.get('/messages', (req, res) => {
   const siteConfig = readSiteConfig();
   const messages = readJsonArray(messagesFile);
-  const list = messages.map(m => `<li>${escapeHtml(m)}</li>`).join('');
+  const listHtml = messages.length
+    ? messages.map(message => `<li class="list-item">${escapeHtml(message)}</li>`).join('')
+    : '<li class="list-item empty">No messages yet</li>';
 
   res.send(renderLayout('Messages', `
-    <h1>Messages</h1>
-    <div class="box">
-      <ul>${list || '<li>No messages yet</li>'}</ul>
-    </div>
-    <p><a href="/">Back</a></p>
+    <section class="box page-header">
+      <span class="eyebrow">Inbox</span>
+      <h1>Messages</h1>
+      <p class="lead">תצוגה מרוכזת של הודעות שנשמרו באתר.</p>
+    </section>
+    <section class="list-card">
+      <ul class="list-clean">${listHtml}</ul>
+    </section>
   `, siteConfig));
 });
 
 app.get('/tasks', (req, res) => {
   const siteConfig = readSiteConfig();
   const tasks = readJsonArray(tasksFile);
-  const list = tasks.map(t => {
-    if (typeof t === 'string') {
-      return `<li>${escapeHtml(t)}</li>`;
-    }
-    return `<li><strong>${escapeHtml(t.title || 'Untitled task')}</strong> - ${escapeHtml(t.status || 'open')}</li>`;
-  }).join('');
+  const listHtml = tasks.length
+    ? tasks.map(task => {
+        if (typeof task === 'string') {
+          return `<li class="list-item">${escapeHtml(task)}</li>`;
+        }
+        return `
+          <li class="list-item">
+            <strong>${escapeHtml(task.title || 'Untitled task')}</strong><br>
+            <span class="muted">Status: ${escapeHtml(task.status || 'open')}</span>
+          </li>
+        `;
+      }).join('')
+    : '<li class="list-item empty">No tasks yet</li>';
 
   res.send(renderLayout('Tasks', `
-    <h1>Tasks</h1>
-    <div class="box">
-      <ul>${list || '<li>No tasks yet</li>'}</ul>
-    </div>
-    <p><a href="/">Back</a></p>
+    <section class="box page-header">
+      <span class="eyebrow">Workflow</span>
+      <h1>Tasks</h1>
+      <p class="lead">רשימת המשימות המעודכנת של האתר.</p>
+    </section>
+    <section class="list-card">
+      <ul class="list-clean">${listHtml}</ul>
+    </section>
   `, siteConfig));
 });
 
@@ -235,21 +509,30 @@ app.get('/:slug', (req, res) => {
 
   if (!page || typeof page !== 'object') {
     res.status(404).send(renderLayout('Page not found', `
-      <h1>Page not found</h1>
-      <p><a href="/">Back to homepage</a></p>
+      <section class="box page-header">
+        <span class="eyebrow">404</span>
+        <h1>Page not found</h1>
+        <p class="lead">העמוד שביקשת לא קיים כרגע באתר.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="/">Back to homepage</a>
+        </div>
+      </section>
     `, siteConfig));
     return;
   }
 
   const title = page.title || slug;
-  const content = escapeHtml(page.content || '').replace(/\n/g, '<br>');
+  const content = formatMultiline(page.content || '');
 
   res.send(renderLayout(title, `
-    <h1>${escapeHtml(title)}</h1>
-    <div class="box">
+    <section class="box page-header">
+      <span class="eyebrow">Website page</span>
+      <h1>${escapeHtml(title)}</h1>
+      <p class="lead">תוכן עמוד דינמי שמנוהל דרך קובץ הקונפיג של האתר.</p>
+    </section>
+    <section class="list-card">
       <p>${content}</p>
-    </div>
-    <p><a href="/">Back</a></p>
+    </section>
   `, siteConfig));
 });
 

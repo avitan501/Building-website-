@@ -1,5 +1,7 @@
 const express = require('express');
 const fs = require('fs');
+const { transcribeAudio, readDocument } = require('./order-intelligence');
+const { syncWhatsAppOrders } = require('./whatsapp-order-sync');
 const app = express();
 
 app.use(express.json({ limit: '1mb' }));
@@ -144,16 +146,19 @@ function readOrders() {
 
 function extractOrderDataFromConversation(conversation, overrides = {}) {
   const text = String(conversation || '').trim();
+  const isUpdate = overrides.__mode === 'update';
   const phoneMatch = text.match(/\+\d{7,15}/);
-  const paymentStatus = overrides.payment_status || overrides.paymentStatus || detectPaymentStatus(text);
-  const currentStage = overrides.current_stage || overrides.currentStage || detectStage(text);
+  const detectedPaymentStatus = detectPaymentStatus(text);
+  const detectedStage = detectStage(text);
+  const paymentStatus = overrides.payment_status || overrides.paymentStatus || (isUpdate && detectedPaymentStatus === 'unknown' ? '' : detectedPaymentStatus);
+  const currentStage = overrides.current_stage || overrides.currentStage || (isUpdate && detectedStage === 'new' ? '' : detectedStage);
 
-  return {
+  const data = {
     customer_name: overrides.customer_name || overrides.customerName || extractNamedField(text, [
       /customer(?: name)?\s*[:\-]\s*(.+)/i,
       /לקוח(?:ה)?\s*[:\-]\s*(.+)/i,
       /שם לקוח\s*[:\-]\s*(.+)/i
-    ], 'Unknown customer'),
+    ], isUpdate ? '' : 'Unknown customer'),
     supplier_name: overrides.supplier_name || overrides.supplierName || extractNamedField(text, [
       /supplier(?: name)?\s*[:\-]\s*(.+)/i,
       /ספק\s*[:\-]\s*(.+)/i,
@@ -168,7 +173,7 @@ function extractOrderDataFromConversation(conversation, overrides = {}) {
       /order(?: summary)?\s*[:\-]\s*(.+)/i,
       /summary\s*[:\-]\s*(.+)/i,
       /פרטי הזמנה\s*[:\-]\s*(.+)/i
-    ], text.slice(0, 160) || 'New order conversation'),
+    ], isUpdate ? '' : (text.slice(0, 160) || 'New order conversation')),
     amount: overrides.amount || extractAmount(text),
     payment_status: paymentStatus,
     current_stage: currentStage,
@@ -176,9 +181,17 @@ function extractOrderDataFromConversation(conversation, overrides = {}) {
       /next step\s*[:\-]\s*(.+)/i,
       /השלב הבא\s*[:\-]\s*(.+)/i,
       /next action\s*[:\-]\s*(.+)/i
-    ], inferNextStep(currentStage, paymentStatus)),
+    ], isUpdate ? '' : inferNextStep(currentStage, paymentStatus)),
     source: overrides.source || 'conversation'
   };
+
+  if (isUpdate) {
+    Object.keys(data).forEach(key => {
+      if (data[key] === '') delete data[key];
+    });
+  }
+
+  return data;
 }
 
 function normalizeOrderRecord(input = {}, base = {}, allOrders = []) {
@@ -191,6 +204,32 @@ function normalizeOrderRecord(input = {}, base = {}, allOrders = []) {
   const currentStage = input.current_stage ?? input.currentStage ?? base.current_stage ?? 'new';
   const nextStep = input.next_step ?? input.nextStep ?? base.next_step ?? inferNextStep(currentStage, paymentStatus);
   const orderId = input.order_id ?? input.orderId ?? base.order_id ?? nextOrderId(allOrders);
+  const lastCustomerMessage = input.last_customer_message ?? input.lastCustomerMessage ?? base.last_customer_message ?? '';
+  const latestSourcePath = input.latest_source_path ?? input.latestSourcePath ?? base.latest_source_path ?? '';
+  const activityLog = Array.isArray(base.activity_log) ? [...base.activity_log] : [];
+
+  if (input.activity_entry && typeof input.activity_entry === 'object') {
+    activityLog.unshift({
+      timestamp: input.activity_entry.timestamp || new Date().toISOString(),
+      media_type: input.activity_entry.media_type || '',
+      source_path: input.activity_entry.source_path || '',
+      body: input.activity_entry.body || ''
+    });
+  }
+
+  const dedupedActivityLog = [];
+  const seenActivity = new Set();
+  for (const entry of activityLog) {
+    const key = JSON.stringify([
+      entry.timestamp || '',
+      entry.media_type || '',
+      entry.source_path || '',
+      entry.body || ''
+    ]);
+    if (seenActivity.has(key)) continue;
+    seenActivity.add(key);
+    dedupedActivityLog.push(entry);
+  }
 
   const record = {
     order_id: orderId,
@@ -202,6 +241,9 @@ function normalizeOrderRecord(input = {}, base = {}, allOrders = []) {
     payment_status: paymentStatus,
     current_stage: currentStage,
     next_step: nextStep,
+    last_customer_message: lastCustomerMessage,
+    latest_source_path: latestSourcePath,
+    activity_log: dedupedActivityLog.slice(0, 20),
     source: input.source ?? base.source ?? 'manual',
     created_at: base.created_at ?? input.created_at ?? new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -335,6 +377,7 @@ app.get('/orders', (req, res) => {
       <p><strong>Next step:</strong> ${escapeHtml(o.next_step || '-')}</p>
       <p><strong>Standing:</strong> ${escapeHtml(o.standing_summary || '-')}</p>
       <p><strong>Source:</strong> ${escapeHtml(o.source || '-')}</p>
+      <p><strong>Last customer message:</strong> ${escapeHtml(o.last_customer_message || '-')}</p>
       <p><strong>Updated:</strong> ${escapeHtml(o.updated_at || '-')}</p>
     </div>
   `).join('');
@@ -350,6 +393,43 @@ app.get('/orders', (req, res) => {
 
 app.get('/api/orders', (req, res) => {
   res.json(readOrders());
+});
+
+app.post('/api/tools/transcribe-audio', async (req, res) => {
+  try {
+    const filePath = typeof req.body?.file === 'string' ? req.body.file.trim() : '';
+    if (!filePath) {
+      res.status(400).json({ ok: false, error: 'file is required' });
+      return;
+    }
+
+    const result = await transcribeAudio(filePath, {
+      language: typeof req.body?.language === 'string' ? req.body.language : 'he'
+    });
+
+    res.json({ ok: true, file: filePath, text: result.text, kind: result.kind, raw: result.raw });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/tools/read-document', async (req, res) => {
+  try {
+    const filePath = typeof req.body?.file === 'string' ? req.body.file.trim() : '';
+    if (!filePath) {
+      res.status(400).json({ ok: false, error: 'file is required' });
+      return;
+    }
+
+    const result = await readDocument(filePath, {
+      mediaType: typeof req.body?.mediaType === 'string' ? req.body.mediaType : '',
+      language: typeof req.body?.language === 'string' ? req.body.language : 'he'
+    });
+
+    res.json({ ok: true, file: filePath, text: result.text, kind: result.kind, raw: result.raw });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 app.post('/api/orders', (req, res) => {
@@ -433,13 +513,27 @@ app.post('/api/orders/update-match', (req, res) => {
   const index = orders.findIndex(order => order.order_id === match.order_id);
   const conversation = typeof req.body?.conversation === 'string' ? req.body.conversation : '';
   const updateData = conversation.trim()
-    ? extractOrderDataFromConversation(conversation, req.body || {})
+    ? {
+        last_customer_message: req.body?.last_customer_message,
+        latest_source_path: req.body?.latest_source_path,
+        activity_entry: req.body?.activity_entry,
+        ...extractOrderDataFromConversation(conversation, { ...(req.body || {}), __mode: 'update' })
+      }
     : (req.body || {});
   const updated = normalizeOrderRecord(updateData, orders[index], orders);
 
   orders[index] = updated;
   writeJsonArray(ordersFile, orders);
   res.json({ ok: true, order_id: updated.order_id, order: updated });
+});
+
+app.post('/api/orders/sync-whatsapp', async (req, res) => {
+  try {
+    const result = await syncWhatsAppOrders({ port: Number(process.env.PORT || 3000) });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 const cfg = readSiteConfig();
@@ -455,6 +549,23 @@ Object.entries(cfg.pages || {}).forEach(([slug, page]) => {
   });
 });
 
-app.listen(3000, () => {
-  console.log('Dashboard running on port 3000');
+const port = Number(process.env.PORT || 3000);
+let backgroundSyncRunning = false;
+
+async function runBackgroundSync() {
+  if (backgroundSyncRunning) return;
+  backgroundSyncRunning = true;
+  try {
+    await syncWhatsAppOrders({ port });
+  } catch (error) {
+    console.error('WhatsApp order sync failed:', error.message);
+  } finally {
+    backgroundSyncRunning = false;
+  }
+}
+
+app.listen(port, () => {
+  console.log(`Dashboard running on port ${port}`);
+  setTimeout(runBackgroundSync, 5000);
+  setInterval(runBackgroundSync, 45000);
 });

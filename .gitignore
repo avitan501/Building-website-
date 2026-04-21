@@ -1,0 +1,6 @@
+node_modules/
+data/order_sync_state.json
+data/test-artifacts/
+data/tesseract-cache/
+*.traineddata
+npm-debug.log*

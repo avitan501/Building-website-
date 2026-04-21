@@ -58,13 +58,13 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-function makeOrderId() {
-  return `ord_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function normalizePhone(value) {
+  return String(value || '').replace(/[^\d+]/g, '');
 }
 
 function extractNamedField(text, patterns, fallback = '') {
   for (const pattern of patterns) {
-    const match = text.match(pattern);
+    const match = String(text || '').match(pattern);
     if (match?.[1]) return match[1].trim();
   }
   return fallback;
@@ -103,22 +103,100 @@ function inferNextStep(stage, paymentStatus) {
 }
 
 function summarizeStanding(order) {
-  return `Order for ${order.customer_name || 'unknown customer'} is currently at stage "${order.current_stage || 'unknown'}". Payment status: ${order.payment_status || 'unknown'}. Next step: ${order.next_step || 'not set'}.`;
+  return `Order ${order.order_id} for ${order.customer_name || 'unknown customer'} is currently at stage "${order.current_stage || 'unknown'}". Payment status: ${order.payment_status || 'unknown'}. Next step: ${order.next_step || 'not set'}.`;
 }
 
-function normalizeOrderRecord(input = {}, base = {}) {
+function nextOrderId(orders) {
+  let maxNumber = 1000;
+  for (const order of orders) {
+    const match = String(order.order_id || '').match(/^ORDER-(\d+)$/i);
+    if (match) maxNumber = Math.max(maxNumber, Number(match[1]));
+  }
+  return `ORDER-${maxNumber + 1}`;
+}
+
+function ensureOrderIds(orders) {
+  let changed = false;
+  let maxNumber = 1000;
+
+  for (const order of orders) {
+    const match = String(order.order_id || '').match(/^ORDER-(\d+)$/i);
+    if (match) maxNumber = Math.max(maxNumber, Number(match[1]));
+  }
+
+  for (const order of orders) {
+    if (!order.order_id) {
+      maxNumber += 1;
+      order.order_id = `ORDER-${maxNumber}`;
+      changed = true;
+    }
+  }
+
+  return { orders, changed };
+}
+
+function readOrders() {
+  const rawOrders = readJsonArray(ordersFile);
+  const { orders, changed } = ensureOrderIds(rawOrders);
+  if (changed) writeJsonArray(ordersFile, orders);
+  return orders;
+}
+
+function extractOrderDataFromConversation(conversation, overrides = {}) {
+  const text = String(conversation || '').trim();
+  const phoneMatch = text.match(/\+\d{7,15}/);
+  const paymentStatus = overrides.payment_status || overrides.paymentStatus || detectPaymentStatus(text);
+  const currentStage = overrides.current_stage || overrides.currentStage || detectStage(text);
+
+  return {
+    customer_name: overrides.customer_name || overrides.customerName || extractNamedField(text, [
+      /customer(?: name)?\s*[:\-]\s*(.+)/i,
+      /לקוח(?:ה)?\s*[:\-]\s*(.+)/i,
+      /שם לקוח\s*[:\-]\s*(.+)/i
+    ], 'Unknown customer'),
+    supplier_name: overrides.supplier_name || overrides.supplierName || extractNamedField(text, [
+      /supplier(?: name)?\s*[:\-]\s*(.+)/i,
+      /ספק\s*[:\-]\s*(.+)/i,
+      /שם ספק\s*[:\-]\s*(.+)/i
+    ], ''),
+    whatsapp_number: overrides.whatsapp_number || overrides.whatsappNumber || extractNamedField(text, [
+      /whatsapp(?: number)?\s*[:\-]\s*(.+)/i,
+      /phone(?: number)?\s*[:\-]\s*(.+)/i,
+      /טלפון\s*[:\-]\s*(.+)/i
+    ], phoneMatch?.[0] || ''),
+    order_summary: overrides.order_summary || overrides.orderSummary || extractNamedField(text, [
+      /order(?: summary)?\s*[:\-]\s*(.+)/i,
+      /summary\s*[:\-]\s*(.+)/i,
+      /פרטי הזמנה\s*[:\-]\s*(.+)/i
+    ], text.slice(0, 160) || 'New order conversation'),
+    amount: overrides.amount || extractAmount(text),
+    payment_status: paymentStatus,
+    current_stage: currentStage,
+    next_step: overrides.next_step || overrides.nextStep || extractNamedField(text, [
+      /next step\s*[:\-]\s*(.+)/i,
+      /השלב הבא\s*[:\-]\s*(.+)/i,
+      /next action\s*[:\-]\s*(.+)/i
+    ], inferNextStep(currentStage, paymentStatus)),
+    source: overrides.source || 'conversation'
+  };
+}
+
+function normalizeOrderRecord(input = {}, base = {}, allOrders = []) {
   const customerName = input.customer_name ?? input.customerName ?? base.customer_name ?? '';
   const supplierName = input.supplier_name ?? input.supplierName ?? base.supplier_name ?? '';
+  const whatsappNumber = normalizePhone(input.whatsapp_number ?? input.whatsappNumber ?? base.whatsapp_number ?? '');
   const orderSummary = input.order_summary ?? input.orderSummary ?? base.order_summary ?? '';
   const amount = input.amount ?? base.amount ?? '';
   const paymentStatus = input.payment_status ?? input.paymentStatus ?? base.payment_status ?? 'unknown';
   const currentStage = input.current_stage ?? input.currentStage ?? base.current_stage ?? 'new';
   const nextStep = input.next_step ?? input.nextStep ?? base.next_step ?? inferNextStep(currentStage, paymentStatus);
+  const orderId = input.order_id ?? input.orderId ?? base.order_id ?? nextOrderId(allOrders);
 
   const record = {
-    id: input.id ?? base.id ?? makeOrderId(),
+    order_id: orderId,
     customer_name: customerName || 'Unknown customer',
     supplier_name: supplierName,
+    whatsapp_number: whatsappNumber,
     order_summary: orderSummary || 'New order',
     amount,
     payment_status: paymentStatus,
@@ -133,48 +211,26 @@ function normalizeOrderRecord(input = {}, base = {}) {
   return record;
 }
 
-function buildOrderFromConversation(conversation, overrides = {}) {
-  const text = String(conversation || '').trim();
-  const customerName = overrides.customer_name || overrides.customerName || extractNamedField(text, [
-    /customer(?: name)?\s*[:\-]\s*(.+)/i,
-    /לקוח(?:ה)?\s*[:\-]\s*(.+)/i,
-    /שם לקוח\s*[:\-]\s*(.+)/i
-  ], 'Unknown customer');
-  const supplierName = overrides.supplier_name || overrides.supplierName || extractNamedField(text, [
-    /supplier(?: name)?\s*[:\-]\s*(.+)/i,
-    /ספק\s*[:\-]\s*(.+)/i,
-    /שם ספק\s*[:\-]\s*(.+)/i
-  ], '');
-  const orderSummary = overrides.order_summary || overrides.orderSummary || extractNamedField(text, [
-    /order(?: summary)?\s*[:\-]\s*(.+)/i,
-    /summary\s*[:\-]\s*(.+)/i,
-    /פרטי הזמנה\s*[:\-]\s*(.+)/i
-  ], text.slice(0, 160) || 'New order conversation');
-  const amount = overrides.amount || extractAmount(text);
-  const paymentStatus = overrides.payment_status || overrides.paymentStatus || detectPaymentStatus(text);
-  const currentStage = overrides.current_stage || overrides.currentStage || detectStage(text);
-  const nextStep = overrides.next_step || overrides.nextStep || extractNamedField(text, [
-    /next step\s*[:\-]\s*(.+)/i,
-    /השלב הבא\s*[:\-]\s*(.+)/i,
-    /next action\s*[:\-]\s*(.+)/i
-  ], inferNextStep(currentStage, paymentStatus));
+function buildOrderFromConversation(conversation, overrides = {}, allOrders = []) {
+  const data = extractOrderDataFromConversation(conversation, overrides);
+  return normalizeOrderRecord(data, {}, allOrders);
+}
 
-  return normalizeOrderRecord({
-    customer_name: customerName,
-    supplier_name: supplierName,
-    order_summary: orderSummary,
-    amount,
-    payment_status: paymentStatus,
-    current_stage: currentStage,
-    next_step: nextStep,
-    source: 'conversation'
+function findMatchingOrders(orders, criteria = {}) {
+  const customerName = String(criteria.customer_name || criteria.customerName || '').trim().toLowerCase();
+  const whatsappNumber = normalizePhone(criteria.whatsapp_number || criteria.whatsappNumber || '');
+
+  return orders.filter(order => {
+    const customerMatch = customerName && String(order.customer_name || '').trim().toLowerCase() === customerName;
+    const phoneMatch = whatsappNumber && normalizePhone(order.whatsapp_number) === whatsappNumber;
+    return Boolean(customerMatch || phoneMatch);
   });
 }
 
 app.get('/', (req, res) => {
   const messages = readJsonArray(messagesFile);
   const tasks = readJsonArray(tasksFile);
-  const orders = readJsonArray(ordersFile);
+  const orders = readOrders();
   const cfg = readSiteConfig();
 
   const sectionsHtml = (cfg.sections || []).map(sec => `
@@ -265,12 +321,12 @@ app.get('/tasks', (req, res) => {
 });
 
 app.get('/orders', (req, res) => {
-  const orders = readJsonArray(ordersFile);
+  const orders = readOrders();
 
   const list = orders.map((o, i) => `
     <div style="border:1px solid #ddd;padding:12px;margin:10px 0;border-radius:8px;">
-      <h3>#${i + 1} - ${escapeHtml(o.customer_name || 'Unknown customer')}</h3>
-      <p><strong>ID:</strong> ${escapeHtml(o.id || '-')}</p>
+      <h3>#${i + 1} - ${escapeHtml(o.order_id || '-')} - ${escapeHtml(o.customer_name || 'Unknown customer')}</h3>
+      <p><strong>WhatsApp:</strong> ${escapeHtml(o.whatsapp_number || '-')}</p>
       <p><strong>Supplier:</strong> ${escapeHtml(o.supplier_name || '-')}</p>
       <p><strong>Summary:</strong> ${escapeHtml(o.order_summary || '-')}</p>
       <p><strong>Amount:</strong> ${escapeHtml(o.amount || '-')}</p>
@@ -293,15 +349,15 @@ app.get('/orders', (req, res) => {
 });
 
 app.get('/api/orders', (req, res) => {
-  res.json(readJsonArray(ordersFile));
+  res.json(readOrders());
 });
 
 app.post('/api/orders', (req, res) => {
-  const orders = readJsonArray(ordersFile);
-  const record = normalizeOrderRecord(req.body || {});
+  const orders = readOrders();
+  const record = normalizeOrderRecord(req.body || {}, {}, orders);
   orders.unshift(record);
   writeJsonArray(ordersFile, orders);
-  res.json({ ok: true, order: record, total: orders.length });
+  res.json({ ok: true, order_id: record.order_id, order: record, total: orders.length });
 });
 
 app.post('/api/orders/from-conversation', (req, res) => {
@@ -311,43 +367,79 @@ app.post('/api/orders/from-conversation', (req, res) => {
     return;
   }
 
-  const orders = readJsonArray(ordersFile);
-  const record = buildOrderFromConversation(conversation, req.body || {});
+  const orders = readOrders();
+  const record = buildOrderFromConversation(conversation, req.body || {}, orders);
   orders.unshift(record);
   writeJsonArray(ordersFile, orders);
-  res.json({ ok: true, order: record, total: orders.length });
+  res.json({ ok: true, order_id: record.order_id, order: record, total: orders.length });
 });
 
-app.patch('/api/orders/:id', (req, res) => {
-  const orders = readJsonArray(ordersFile);
-  const index = orders.findIndex(order => order.id === req.params.id);
+app.patch('/api/orders/:orderId', (req, res) => {
+  const orders = readOrders();
+  const index = orders.findIndex(order => order.order_id === req.params.orderId);
 
   if (index === -1) {
     res.status(404).json({ ok: false, error: 'order not found' });
     return;
   }
 
-  const updated = normalizeOrderRecord(req.body || {}, orders[index]);
+  const updated = normalizeOrderRecord(req.body || {}, orders[index], orders);
   orders[index] = updated;
   writeJsonArray(ordersFile, orders);
-  res.json({ ok: true, order: updated });
+  res.json({ ok: true, order_id: updated.order_id, order: updated });
 });
 
-app.post('/api/orders/:id/summarize', (req, res) => {
-  const orders = readJsonArray(ordersFile);
-  const index = orders.findIndex(order => order.id === req.params.id);
+app.post('/api/orders/:orderId/summarize', (req, res) => {
+  const orders = readOrders();
+  const index = orders.findIndex(order => order.order_id === req.params.orderId);
 
   if (index === -1) {
     res.status(404).json({ ok: false, error: 'order not found' });
     return;
   }
 
-  const updated = normalizeOrderRecord(req.body || {}, orders[index]);
+  const updated = normalizeOrderRecord(req.body || {}, orders[index], orders);
   updated.standing_summary = summarizeStanding(updated);
   updated.updated_at = new Date().toISOString();
   orders[index] = updated;
   writeJsonArray(ordersFile, orders);
-  res.json({ ok: true, summary: updated.standing_summary, order: updated });
+  res.json({ ok: true, order_id: updated.order_id, summary: updated.standing_summary, order: updated });
+});
+
+app.post('/api/orders/update-match', (req, res) => {
+  const orders = readOrders();
+  const matches = findMatchingOrders(orders, req.body || {});
+
+  if (matches.length === 0) {
+    res.status(404).json({ ok: false, error: 'no matching order found' });
+    return;
+  }
+
+  if (matches.length > 1) {
+    res.status(409).json({
+      ok: false,
+      error: 'multiple orders found, clarification required',
+      matches: matches.map(order => ({
+        order_id: order.order_id,
+        customer_name: order.customer_name,
+        whatsapp_number: order.whatsapp_number,
+        current_stage: order.current_stage
+      }))
+    });
+    return;
+  }
+
+  const match = matches[0];
+  const index = orders.findIndex(order => order.order_id === match.order_id);
+  const conversation = typeof req.body?.conversation === 'string' ? req.body.conversation : '';
+  const updateData = conversation.trim()
+    ? extractOrderDataFromConversation(conversation, req.body || {})
+    : (req.body || {});
+  const updated = normalizeOrderRecord(updateData, orders[index], orders);
+
+  orders[index] = updated;
+  writeJsonArray(ordersFile, orders);
+  res.json({ ok: true, order_id: updated.order_id, order: updated });
 });
 
 const cfg = readSiteConfig();

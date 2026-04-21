@@ -1,0 +1,66 @@
+[
+  "בדיקה 123",
+  "task add | לבדוק שרת",
+  "task add | לחבר dashboard",
+  "task list",
+  {
+    "text": "/help",
+    "source": "server_bot",
+    "created_at": "2026-04-20T23:26:20.124Z"
+  },
+  {
+    "text": "/help\ntask add | לבדוק מערכת\ntask list",
+    "source": "server_bot",
+    "created_at": "2026-04-20T23:27:20.249Z"
+  },
+  {
+    "text": "/help",
+    "source": "server_bot",
+    "created_at": "2026-04-21T00:48:08.277Z"
+  },
+  {
+    "text": "שלום",
+    "source": "chat_bot",
+    "created_at": "2026-04-21T00:57:57.505Z"
+  },
+  {
+    "text": "send to server",
+    "source": "chat_bot",
+    "created_at": "2026-04-21T00:58:06.849Z"
+  },
+  {
+    "text": "inbox",
+    "source": "server_bot",
+    "created_at": "2026-04-21T00:58:23.450Z"
+  },
+  {
+    "source": "brain_bot",
+    "text": "/start",
+    "created_at": "2026-04-21T01:48:02.449Z"
+  },
+  {
+    "source": "brain_bot",
+    "text": "שלום",
+    "created_at": "2026-04-21T01:48:06.459Z"
+  },
+  {
+    "source": "brain_bot",
+    "text": "install nginx",
+    "created_at": "2026-04-21T01:48:33.294Z"
+  },
+  {
+    "text": "inbox",
+    "source": "server_bot",
+    "created_at": "2026-04-21T01:51:16.424Z"
+  },
+  {
+    "text": "/help",
+    "source": "server_bot",
+    "created_at": "2026-04-21T01:51:16.426Z"
+  },
+  {
+    "text": "/help",
+    "source": "server_bot",
+    "created_at": "2026-04-21T01:51:28.325Z"
+  }
+]

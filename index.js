@@ -56,36 +56,94 @@ function renderLayout(pageTitle, body, siteConfig) {
     <html>
       <head>
         <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>${escapeHtml(pageTitle)}</title>
         <style>
+          :root {
+            --bg: ${escapeHtml(siteConfig.bg)};
+            --text: ${escapeHtml(siteConfig.text)};
+            --card: rgba(15, 23, 42, 0.78);
+            --border: rgba(148, 163, 184, 0.18);
+            --accent: #8b5cf6;
+            --accent-soft: rgba(139, 92, 246, 0.18);
+          }
+          * {
+            box-sizing: border-box;
+          }
           body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background: ${escapeHtml(siteConfig.bg)};
-            color: ${escapeHtml(siteConfig.text)};
+            margin: 0;
+            font-family: Inter, Arial, sans-serif;
+            padding: 32px 20px;
+            background:
+              radial-gradient(circle at top, rgba(139, 92, 246, 0.22), transparent 30%),
+              linear-gradient(180deg, #111827 0%, var(--bg) 55%, #050816 100%);
+            color: var(--text);
+            min-height: 100vh;
+          }
+          .container {
+            width: 100%;
+            max-width: 920px;
+            margin: 0 auto;
           }
           h1, h2 {
-            color: ${escapeHtml(siteConfig.text)};
+            color: var(--text);
+            margin-top: 0;
+          }
+          h1 {
+            font-size: clamp(2.2rem, 5vw, 3.4rem);
+            margin-bottom: 10px;
+          }
+          h2 {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+          }
+          p, li {
+            line-height: 1.7;
           }
           .subtitle {
-            opacity: 0.85;
-            margin-top: -5px;
-            margin-bottom: 24px;
+            color: rgba(229, 231, 235, 0.78);
+            margin-top: -2px;
+            margin-bottom: 26px;
+            font-size: 1.05rem;
           }
           .box {
-            background: rgba(255, 255, 255, 0.08);
-            padding: 15px;
-            margin: 10px 0;
-            border-radius: 10px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(14px);
+            padding: 20px;
+            margin: 14px 0;
+            border-radius: 18px;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
           }
           a {
-            color: ${escapeHtml(siteConfig.text)};
-            text-decoration: underline;
+            color: #c4b5fd;
+            text-decoration: none;
+          }
+          a:hover {
+            color: #ddd6fe;
+          }
+          ul {
+            padding-inline-start: 20px;
+          }
+          .box p:last-child,
+          .box ul:last-child {
+            margin-bottom: 0;
+          }
+          .pill {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: #ddd6fe;
+            font-size: 0.88rem;
+            margin-bottom: 14px;
           }
         </style>
       </head>
       <body>
-        ${body}
+        <main class="container">
+          ${body}
+        </main>
       </body>
     </html>
   `;

@@ -1,4 +1,5 @@
 node_modules/
+.run/
 data/order_sync_state.json
 data/test-artifacts/
 data/tesseract-cache/

@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const { transcribeAudio, readDocument } = require('./order-intelligence');
 const { syncWhatsAppOrders } = require('./whatsapp-order-sync');
+const { readTasks, createTaskFromText, syncExistingTaskToMonday, getMondayBoard } = require('./task-intelligence');
 const app = express();
 
 app.use(express.json({ limit: '1mb' }));
@@ -271,7 +272,7 @@ function findMatchingOrders(orders, criteria = {}) {
 
 app.get('/', (req, res) => {
   const messages = readJsonArray(messagesFile);
-  const tasks = readJsonArray(tasksFile);
+  const tasks = readTasks(tasksFile);
   const orders = readOrders();
   const cfg = readSiteConfig();
 
@@ -347,10 +348,10 @@ app.get('/messages', (req, res) => {
 });
 
 app.get('/tasks', (req, res) => {
-  const tasks = readJsonArray(tasksFile);
+  const tasks = readTasks(tasksFile);
   const list = tasks.map(t => {
     if (typeof t === 'string') return `<li>${escapeHtml(t)}</li>`;
-    return `<li><strong>${escapeHtml(t.title || 'Untitled task')}</strong> - ${escapeHtml(t.status || 'open')}</li>`;
+    return `<li><strong>${escapeHtml(t.id || '-')}</strong> - <strong>${escapeHtml(t.title || 'Untitled task')}</strong> - ${escapeHtml(t.status || 'open')} - ${escapeHtml(t.priority || 'normal')}${t.monday_item_id ? ` - Monday ${escapeHtml(t.monday_item_id)}` : ''}</li>`;
   }).join('');
 
   res.send(`
@@ -393,6 +394,65 @@ app.get('/orders', (req, res) => {
 
 app.get('/api/orders', (req, res) => {
   res.json(readOrders());
+});
+
+app.get('/api/tasks', (req, res) => {
+  res.json(readTasks(tasksFile));
+});
+
+app.get('/api/monday/status', async (req, res) => {
+  try {
+    const status = await getMondayBoard();
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const text = typeof req.body?.text === 'string' && req.body.text.trim()
+      ? req.body.text
+      : [req.body?.title || '', req.body?.description || ''].filter(Boolean).join('\n');
+
+    if (!String(text || '').trim()) {
+      res.status(400).json({ ok: false, error: 'text or title is required' });
+      return;
+    }
+
+    const result = await createTaskFromText(tasksFile, text, req.body || {});
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/tasks/from-text', async (req, res) => {
+  try {
+    const text = typeof req.body?.text === 'string' ? req.body.text : '';
+    if (!text.trim()) {
+      res.status(400).json({ ok: false, error: 'text is required' });
+      return;
+    }
+
+    const result = await createTaskFromText(tasksFile, text, req.body || {});
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/tasks/:taskId/sync-monday', async (req, res) => {
+  try {
+    const result = await syncExistingTaskToMonday(tasksFile, req.params.taskId);
+    if (!result.ok) {
+      res.status(404).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 app.post('/api/tools/transcribe-audio', async (req, res) => {

@@ -14,6 +14,10 @@
     "about": {
       "title": "About Us",
       "content": "תוכן"
+    },
+    "services": {
+      "title": "Services",
+      "content": "פירוט שירותים"
     }
   }
 }

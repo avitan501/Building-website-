@@ -3,6 +3,7 @@ const fs = require('fs');
 const { transcribeAudio, readDocument } = require('./order-intelligence');
 const { syncWhatsAppOrders } = require('./whatsapp-order-sync');
 const { readTasks, createTaskFromText, syncExistingTaskToMonday, getMondayBoard } = require('./task-intelligence');
+const { syncMessageTasks } = require('./message-task-sync');
 const app = express();
 
 app.use(express.json({ limit: '1mb' }));
@@ -455,6 +456,18 @@ app.post('/api/tasks/:taskId/sync-monday', async (req, res) => {
   }
 });
 
+app.post('/api/tasks/sync-messages', async (req, res) => {
+  try {
+    const result = await syncMessageTasks({
+      tasksFile,
+      backfill: Boolean(req.body?.backfill)
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 app.post('/api/tools/transcribe-audio', async (req, res) => {
   try {
     const filePath = typeof req.body?.file === 'string' ? req.body.file.trim() : '';
@@ -610,22 +623,37 @@ Object.entries(cfg.pages || {}).forEach(([slug, page]) => {
 });
 
 const port = Number(process.env.PORT || 3000);
-let backgroundSyncRunning = false;
+let backgroundOrderSyncRunning = false;
+let backgroundTaskSyncRunning = false;
 
-async function runBackgroundSync() {
-  if (backgroundSyncRunning) return;
-  backgroundSyncRunning = true;
+async function runBackgroundOrderSync() {
+  if (backgroundOrderSyncRunning) return;
+  backgroundOrderSyncRunning = true;
   try {
     await syncWhatsAppOrders({ port });
   } catch (error) {
     console.error('WhatsApp order sync failed:', error.message);
   } finally {
-    backgroundSyncRunning = false;
+    backgroundOrderSyncRunning = false;
+  }
+}
+
+async function runBackgroundTaskSync() {
+  if (backgroundTaskSyncRunning) return;
+  backgroundTaskSyncRunning = true;
+  try {
+    await syncMessageTasks({ tasksFile });
+  } catch (error) {
+    console.error('Message task sync failed:', error.message);
+  } finally {
+    backgroundTaskSyncRunning = false;
   }
 }
 
 app.listen(port, () => {
   console.log(`Dashboard running on port ${port}`);
-  setTimeout(runBackgroundSync, 5000);
-  setInterval(runBackgroundSync, 45000);
+  setTimeout(runBackgroundOrderSync, 5000);
+  setTimeout(runBackgroundTaskSync, 7000);
+  setInterval(runBackgroundOrderSync, 45000);
+  setInterval(runBackgroundTaskSync, 30000);
 });

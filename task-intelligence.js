@@ -183,7 +183,7 @@ function inferSuggestedStatus(task) {
 }
 
 function inferTaskFromText(text, overrides = {}) {
-  const cleanText = normalizeTaskText(text);
+  const cleanText = normalizeTaskText(text).replace(/^task:\s*/i, '').trim();
   const firstLine = cleanText.split('\n')[0] || cleanText;
   const title = normalizeTitle(overrides.title || firstLine).slice(0, 120);
 

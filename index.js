@@ -2,8 +2,11 @@ const express = require('express');
 const fs = require('fs');
 const app = express();
 
+app.use(express.json({ limit: '1mb' }));
+
 const messagesFile = '/root/mysite/messages.json';
 const tasksFile = '/root/mysite/tasks.json';
+const ordersFile = '/root/mysite/orders.json';
 const siteConfigFile = '/root/mysite/site-config.json';
 
 function readJson(filePath, fallback) {
@@ -20,6 +23,10 @@ function readJson(filePath, fallback) {
 function readJsonArray(filePath) {
   const parsed = readJson(filePath, []);
   return Array.isArray(parsed) ? parsed : [];
+}
+
+function writeJson(filePath, value) {
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 }
 
 function readSiteConfig() {
@@ -63,6 +70,85 @@ function getPageEntries(siteConfig) {
   }));
 }
 
+function extractNamedField(text, patterns, fallback = '') {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return fallback;
+}
+
+function detectPaymentStatus(text) {
+  const value = text.toLowerCase();
+  if (/paid|payment received|שולם|שולמה/.test(value)) return 'paid';
+  if (/not paid|unpaid|לא שולם|לא שולם עדיין/.test(value)) return 'unpaid';
+  if (/pending payment|awaiting payment|ממתין לתשלום|טרם שולם/.test(value)) return 'pending';
+  return 'unknown';
+}
+
+function detectStage(text) {
+  const value = text.toLowerCase();
+  if (/delivered|completed|נמסר|הושלם/.test(value)) return 'completed';
+  if (/shipped|on the way|בדרך|נשלח/.test(value)) return 'shipping';
+  if (/production|in progress|בטיפול|בביצוע|בייצור/.test(value)) return 'in-progress';
+  if (/approved|confirmed|אושר|אושרה/.test(value)) return 'confirmed';
+  return 'new';
+}
+
+function extractAmount(text) {
+  const match = text.match(/(?:amount|total|sum|סה["׳']?כ|מחיר)\s*[:\-]?\s*([₪$€]?\s?\d+(?:[.,]\d{1,2})?)/i)
+    || text.match(/([₪$€]\s?\d+(?:[.,]\d{1,2})?)/);
+  return match?.[1]?.trim() || '';
+}
+
+function inferNextStep(stage, paymentStatus) {
+  if (paymentStatus === 'unpaid' || paymentStatus === 'pending') return 'Collect payment';
+  if (stage === 'new') return 'Confirm the order details';
+  if (stage === 'confirmed') return 'Send the order to execution';
+  if (stage === 'in-progress') return 'Follow up with the supplier/customer';
+  if (stage === 'shipping') return 'Track delivery and confirm arrival';
+  return 'Follow up with the customer';
+}
+
+function buildOrderRecordFromConversation(conversation, overrides = {}) {
+  const text = String(conversation || '').trim();
+  const customerName = overrides.customerName || extractNamedField(text, [
+    /customer(?: name)?\s*[:\-]\s*(.+)/i,
+    /לקוח(?:ה)?\s*[:\-]\s*(.+)/i,
+    /שם לקוח\s*[:\-]\s*(.+)/i
+  ], 'Unknown customer');
+  const supplierName = overrides.supplierName || extractNamedField(text, [
+    /supplier(?: name)?\s*[:\-]\s*(.+)/i,
+    /ספק\s*[:\-]\s*(.+)/i,
+    /שם ספק\s*[:\-]\s*(.+)/i
+  ], '');
+  const orderSummary = overrides.orderSummary || extractNamedField(text, [
+    /order(?: summary)?\s*[:\-]\s*(.+)/i,
+    /summary\s*[:\-]\s*(.+)/i,
+    /מוצרים?\s*[:\-]\s*(.+)/i,
+    /פרטי הזמנה\s*[:\-]\s*(.+)/i
+  ], text.slice(0, 160) || 'New order conversation');
+  const amount = overrides.amount || extractAmount(text);
+  const paymentStatus = overrides.paymentStatus || detectPaymentStatus(text);
+  const currentStage = overrides.currentStage || detectStage(text);
+  const nextStep = overrides.nextStep || extractNamedField(text, [
+    /next step\s*[:\-]\s*(.+)/i,
+    /השלב הבא\s*[:\-]\s*(.+)/i,
+    /next action\s*[:\-]\s*(.+)/i
+  ], inferNextStep(currentStage, paymentStatus));
+
+  return {
+    customerName,
+    supplierName,
+    orderSummary,
+    amount,
+    paymentStatus,
+    currentStage,
+    nextStep,
+    createdAt: new Date().toISOString()
+  };
+}
+
 function renderNav(siteConfig) {
   const pageLinks = getPageEntries(siteConfig)
     .slice(0, 4)
@@ -78,6 +164,7 @@ function renderNav(siteConfig) {
       <nav class="nav">
         <a href="/">Home</a>
         ${pageLinks}
+        <a href="/orders">Orders</a>
         <a href="/messages">Messages</a>
         <a href="/tasks">Tasks</a>
       </nav>
@@ -403,23 +490,28 @@ app.get('/', (req, res) => {
   const siteConfig = readSiteConfig();
   const messages = readJsonArray(messagesFile);
   const tasks = readJsonArray(tasksFile);
+  const orders = readJsonArray(ordersFile);
   const pages = getPageEntries(siteConfig);
-  const primaryPage = pages[0];
-  const secondaryPage = pages[1];
+  const secondaryPage = pages[0];
 
   res.send(renderLayout(siteConfig.title, `
     <section class="box hero">
       <span class="eyebrow">Professional website</span>
       <h1>${escapeHtml(siteConfig.title)}</h1>
       <p class="subtitle">${escapeHtml(siteConfig.subtitle)}</p>
-      <p class="lead">אתר מקצועי, מהיר ונקי עם עמודים דינמיים, ניהול דרך טלגרם ופריסה אוטומטית בלחיצה אחת.</p>
+      <p class="lead">אתר מקצועי, מהיר ונקי עם עמודים דינמיים, ניהול דרך טלגרם, ויכולת להפוך שיחות הזמנה בוואטסאפ לרשומות order מסודרות.</p>
       <div class="hero-actions">
-        ${primaryPage ? `<a class="btn btn-primary" href="/${encodeURIComponent(primaryPage.slug)}">${escapeHtml(primaryPage.title)}</a>` : ''}
+        <a class="btn btn-primary" href="/orders">Open orders</a>
         ${secondaryPage ? `<a class="btn btn-secondary" href="/${encodeURIComponent(secondaryPage.slug)}">${escapeHtml(secondaryPage.title)}</a>` : '<a class="btn btn-secondary" href="/messages">Open dashboard</a>'}
       </div>
     </section>
 
     <section class="stats-grid">
+      <article class="stat-card">
+        <span class="muted">Orders</span>
+        <strong>${orders.length}</strong>
+        <span class="muted">Structured order records</span>
+      </article>
       <article class="stat-card">
         <span class="muted">Pages</span>
         <strong>${pages.length}</strong>
@@ -452,6 +544,58 @@ app.get('/', (req, res) => {
 
     ${renderPageCards(siteConfig)}
   `, siteConfig));
+});
+
+app.get('/orders', (req, res) => {
+  const siteConfig = readSiteConfig();
+  const orders = readJsonArray(ordersFile);
+  const listHtml = orders.length
+    ? orders.map(order => `
+        <article class="page-card">
+          <h3>${escapeHtml(order.customerName || 'Unknown customer')}</h3>
+          <p class="muted">${escapeHtml(order.orderSummary || 'No summary')}</p>
+          <p><strong>Supplier:</strong> ${escapeHtml(order.supplierName || '-')}</p>
+          <p><strong>Amount:</strong> ${escapeHtml(order.amount || '-')}</p>
+          <p><strong>Payment:</strong> ${escapeHtml(order.paymentStatus || 'unknown')}</p>
+          <p><strong>Stage:</strong> ${escapeHtml(order.currentStage || 'new')}</p>
+          <p><strong>Next step:</strong> ${escapeHtml(order.nextStep || '-')}</p>
+        </article>
+      `).join('')
+    : '<div class="box empty">No order records yet</div>';
+
+  res.send(renderLayout('Orders', `
+    <section class="box page-header">
+      <span class="eyebrow">Orders</span>
+      <h1>Order records</h1>
+      <p class="lead">כל שיחת הזמנה יכולה להפוך לרשומת order ברורה עם לקוח, ספק, סכום, סטטוס ותעדוף המשך.</p>
+    </section>
+    <section class="page-grid">${listHtml}</section>
+  `, siteConfig));
+});
+
+app.post('/api/orders/from-conversation', (req, res) => {
+  const conversation = typeof req.body?.conversation === 'string' ? req.body.conversation : '';
+  const overrides = {
+    customerName: req.body?.customerName,
+    supplierName: req.body?.supplierName,
+    orderSummary: req.body?.orderSummary,
+    amount: req.body?.amount,
+    paymentStatus: req.body?.paymentStatus,
+    currentStage: req.body?.currentStage,
+    nextStep: req.body?.nextStep
+  };
+
+  if (!conversation.trim() && !overrides.orderSummary) {
+    res.status(400).json({ ok: false, error: 'conversation or orderSummary is required' });
+    return;
+  }
+
+  const record = buildOrderRecordFromConversation(conversation, overrides);
+  const orders = readJsonArray(ordersFile);
+  orders.unshift(record);
+  writeJson(ordersFile, orders);
+
+  res.json({ ok: true, order: record, total: orders.length });
 });
 
 app.get('/messages', (req, res) => {

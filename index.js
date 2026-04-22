@@ -19,6 +19,15 @@ const {
   runAutoQueue,
   runNightQueue
 } = require('./agent-queue');
+const {
+  buildTaskHubSnapshot,
+  createTaskHubTask,
+  updateTaskHubTask,
+  addTaskContact,
+  updateTaskContact,
+  addTaskContactActivity,
+  renderTaskHubPage
+} = require('./task-hub');
 const app = express();
 
 app.use(express.json({ limit: '1mb' }));
@@ -1505,9 +1514,9 @@ app.get('/ops', (req, res) => {
         </div>
 
         <div class="box">
-          <h2>✅ Tasks</h2>
+          <h2>✅ Task Hub</h2>
           <p>Total: ${tasks.length}</p>
-          <p><a href="/tasks">Open tasks</a></p>
+          <p><a href="/task-hub">Open task hub</a></p>
         </div>
 
         <div class="box">
@@ -1541,21 +1550,8 @@ app.get('/messages', (req, res) => {
   `);
 });
 
-app.get('/tasks', (req, res) => {
-  const tasks = readTasks(tasksFile);
-  const list = tasks.map(t => {
-    if (typeof t === 'string') return `<li>${escapeHtml(t)}</li>`;
-    return `<li><strong>${escapeHtml(t.id || '-')}</strong> - <strong>${escapeHtml(t.title || 'Untitled task')}</strong> - ${escapeHtml(t.status || 'open')} - ${escapeHtml(t.priority || 'normal')}${t.monday_item_id ? ` - Monday ${escapeHtml(t.monday_item_id)}` : ''}</li>`;
-  }).join('');
-
-  res.send(`
-    <html><body>
-      <h1>Tasks</h1>
-      <ul>${list || '<li>No tasks yet</li>'}</ul>
-      <p><a href="/ops/queue">Open queue dashboard</a></p>
-      <p><a href="/ops">Back</a></p>
-    </body></html>
-  `);
+app.get(['/tasks', '/task-hub'], (req, res) => {
+  res.send(renderTaskHubPage());
 });
 
 app.get('/ops/queue', (req, res) => {
@@ -1685,6 +1681,75 @@ app.get('/api/orders', (req, res) => {
 
 app.get('/api/tasks', (req, res) => {
   res.json(readTasks(tasksFile));
+});
+
+app.get('/api/task-hub', (req, res) => {
+  res.json(buildTaskHubSnapshot(tasksFile));
+});
+
+app.post('/api/task-hub/tasks', async (req, res) => {
+  try {
+    const result = await createTaskHubTask(tasksFile, req.body || {});
+    if (!result.ok) {
+      res.status(400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.patch('/api/task-hub/tasks/:taskId', async (req, res) => {
+  try {
+    const result = await updateTaskHubTask(tasksFile, req.params.taskId, req.body || {});
+    if (!result.ok) {
+      res.status(result.error === 'task not found' ? 404 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/task-hub/tasks/:taskId/contacts', async (req, res) => {
+  try {
+    const result = await addTaskContact(tasksFile, req.params.taskId, req.body || {});
+    if (!result.ok) {
+      res.status(result.error === 'task not found' ? 404 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.patch('/api/task-hub/tasks/:taskId/contacts/:contactId', async (req, res) => {
+  try {
+    const result = await updateTaskContact(tasksFile, req.params.taskId, req.params.contactId, req.body || {});
+    if (!result.ok) {
+      res.status(['task not found', 'contact not found'].includes(result.error) ? 404 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/task-hub/tasks/:taskId/contacts/:contactId/activity', async (req, res) => {
+  try {
+    const result = await addTaskContactActivity(tasksFile, req.params.taskId, req.params.contactId, req.body || {});
+    if (!result.ok) {
+      res.status(['task not found', 'contact not found'].includes(result.error) ? 404 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 app.get('/api/monday/status', async (req, res) => {

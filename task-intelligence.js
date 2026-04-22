@@ -411,11 +411,124 @@ function ensureTaskIds(tasks) {
   return { tasks, changed };
 }
 
-function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
+function generateEntityId(prefix) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}${Date.now().toString(36).slice(-4).toUpperCase()}`;
+}
+
+function toComparableTimestamp(value) {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function normalizeTaskContactActivity(input = {}, base = {}, options = {}) {
+  const preserveUpdatedAt = Boolean(options.preserveUpdatedAt);
+  const now = new Date().toISOString();
+  const timestamp = normalizeTaskText(input.timestamp || base.timestamp || now) || now;
+  return {
+    id: input.id || base.id || generateEntityId('ACT'),
+    timestamp,
+    type: normalizeTaskText(input.type || base.type || 'call') || 'call',
+    summary: normalizeTaskText(input.summary || input.note || base.summary || base.note || ''),
+    outcome: normalizeTaskText(input.outcome || base.outcome || ''),
+    proposal: normalizeTaskText(input.proposal || input.suggestion || base.proposal || base.suggestion || ''),
+    next_step: normalizeTaskText(input.next_step || input.nextStep || base.next_step || ''),
+    status_after: normalizeTaskText(input.status_after || input.statusAfter || base.status_after || ''),
+    created_at: base.created_at || input.created_at || timestamp,
+    updated_at: preserveUpdatedAt ? (input.updated_at || base.updated_at || now) : now
+  };
+}
+
+function normalizeTaskContact(input = {}, base = {}, options = {}) {
+  const preserveUpdatedAt = Boolean(options.preserveUpdatedAt);
+  const now = new Date().toISOString();
+  const activityInput = Array.isArray(input.activities)
+    ? input.activities
+    : Array.isArray(input.activity)
+      ? input.activity
+      : Array.isArray(base.activities)
+        ? base.activities
+        : [];
+
+  const seenActivities = new Set();
+  const activities = activityInput
+    .map(entry => normalizeTaskContactActivity(entry, entry, options))
+    .filter(entry => entry.summary || entry.proposal || entry.next_step || entry.outcome)
+    .filter(entry => {
+      if (seenActivities.has(entry.id)) return false;
+      seenActivities.add(entry.id);
+      return true;
+    })
+    .sort((a, b) => toComparableTimestamp(b.timestamp) - toComparableTimestamp(a.timestamp));
+
+  const latestActivity = activities[0] || null;
+  const record = {
+    id: input.id || base.id || generateEntityId('CONTACT'),
+    name: normalizeTaskText(input.name || base.name || ''),
+    phone: normalizePhone(input.phone || input.whatsapp_number || input.whatsappNumber || base.phone || base.whatsapp_number || ''),
+    company: normalizeTaskText(input.company || base.company || ''),
+    role: normalizeTaskText(input.role || base.role || ''),
+    relation: normalizeTaskText(input.relation || base.relation || ''),
+    status: normalizeTaskText(input.status || base.status || latestActivity?.status_after || 'to-call') || 'to-call',
+    notes: normalizeTaskText(input.notes || base.notes || ''),
+    progress_summary: normalizeTaskText(input.progress_summary || input.progressSummary || base.progress_summary || latestActivity?.summary || ''),
+    proposal_summary: normalizeTaskText(input.proposal_summary || input.proposalSummary || base.proposal_summary || latestActivity?.proposal || ''),
+    next_step: normalizeTaskText(input.next_step || input.nextStep || base.next_step || latestActivity?.next_step || ''),
+    last_contact_at: normalizeTaskText(input.last_contact_at || input.lastContactAt || base.last_contact_at || latestActivity?.timestamp || ''),
+    activities,
+    created_at: base.created_at || input.created_at || now,
+    updated_at: preserveUpdatedAt ? (input.updated_at || base.updated_at || now) : now
+  };
+
+  if (!record.last_contact_at && latestActivity?.timestamp) {
+    record.last_contact_at = latestActivity.timestamp;
+  }
+
+  return record;
+}
+
+function normalizeTaskContacts(value, options = {}) {
+  const items = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  const result = [];
+
+  for (const item of items) {
+    const contact = normalizeTaskContact(item, item, options);
+    const key = contact.id || `${normalizeComparableText(contact.name)}|${normalizePhone(contact.phone)}`;
+    if ((!contact.name && !contact.phone) || seen.has(key)) continue;
+    seen.add(key);
+    result.push(contact);
+  }
+
+  return result.sort((a, b) => {
+    const diff = toComparableTimestamp(b.last_contact_at) - toComparableTimestamp(a.last_contact_at);
+    if (diff !== 0) return diff;
+    return toComparableTimestamp(b.updated_at) - toComparableTimestamp(a.updated_at);
+  });
+}
+
+function summarizeTaskContacts(contacts = []) {
+  const list = Array.isArray(contacts) ? contacts : [];
+  if (!list.length) return '';
+
+  return list
+    .slice(0, 5)
+    .map(contact => {
+      const bits = [contact.name || 'Unnamed contact'];
+      if (contact.status) bits.push(contact.status);
+      if (contact.next_step) bits.push(`next: ${contact.next_step}`);
+      if (contact.proposal_summary) bits.push(`proposal: ${contact.proposal_summary}`);
+      return bits.join(' | ');
+    })
+    .join('\n');
+}
+
+function normalizeTaskRecord(input = {}, base = {}, allTasks = [], options = {}) {
+  const preserveUpdatedAt = Boolean(options.preserveUpdatedAt);
+  const now = new Date().toISOString();
   const incomingEntries = [];
   if ((!Array.isArray(base.conversation_history) || !base.conversation_history.length) && (base.description || base.source_text)) {
     incomingEntries.push({
-      timestamp: base.last_message_at || base.updated_at || base.created_at || new Date().toISOString(),
+      timestamp: base.last_message_at || base.updated_at || base.created_at || now,
       source: base.source || input.source || 'manual',
       chat_id: base.source_chat_id || '',
       contact: base.source_contact || '',
@@ -427,7 +540,7 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
     incomingEntries.push(input.conversation_entry);
   } else if (!Array.isArray(base.conversation_history) || !base.conversation_history.length) {
     incomingEntries.push({
-      timestamp: input.last_message_at || input.updated_at || new Date().toISOString(),
+      timestamp: input.last_message_at || input.updated_at || now,
       source: input.source || base.source || 'manual',
       chat_id: input.source_chat_id || input.sourceChatId || base.source_chat_id || '',
       contact: input.source_contact || input.sourceContact || base.source_contact || '',
@@ -439,6 +552,16 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
     Array.isArray(base.conversation_history) ? base.conversation_history : [],
     incomingEntries
   );
+
+  const contacts = normalizeTaskContacts(
+    input.contacts || input.people || base.contacts || base.people || [],
+    options
+  );
+  const derivedLastContactAt = contacts.reduce((latest, contact) => {
+    return toComparableTimestamp(contact.last_contact_at) > toComparableTimestamp(latest)
+      ? contact.last_contact_at
+      : latest;
+  }, '');
 
   const record = {
     id: input.id || base.id || nextTaskId(allTasks),
@@ -456,11 +579,15 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
     whatsapp_number: normalizePhone(input.whatsapp_number || input.whatsappNumber || base.whatsapp_number || ''),
     amount: normalizeTaskText(input.amount || base.amount || ''),
     next_step: normalizeTaskText(input.next_step || input.nextStep || base.next_step || ''),
+    task_notes: normalizeTaskText(input.task_notes || input.taskNotes || base.task_notes || ''),
     tags: normalizeTags(input.tags || base.tags || []),
     source_chat_id: normalizeTaskText(input.source_chat_id || input.sourceChatId || base.source_chat_id || ''),
     source_contact: normalizeTaskText(input.source_contact || input.sourceContact || base.source_contact || ''),
     conversation_history,
     last_message_at: conversation_history.length ? conversation_history[conversation_history.length - 1].timestamp : (input.last_message_at || base.last_message_at || ''),
+    contacts,
+    last_contact_at: normalizeTaskText(input.last_contact_at || input.lastContactAt || base.last_contact_at || derivedLastContactAt || ''),
+    contact_summary: normalizeTaskText(input.contact_summary || input.contactSummary || base.contact_summary || summarizeTaskContacts(contacts)),
     related_keys: normalizeTags(input.related_keys || input.relatedKeys || base.related_keys || []),
     monday_item_id: input.monday_item_id || input.mondayItemId || base.monday_item_id || '',
     monday_board_id: input.monday_board_id || input.mondayBoardId || base.monday_board_id || '',
@@ -485,8 +612,8 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
     queue_plan: normalizeTaskText(input.queue_plan || input.queuePlan || base.queue_plan || ''),
     queue_result: normalizeTaskText(input.queue_result || input.queueResult || base.queue_result || ''),
     queue_error: normalizeTaskText(input.queue_error || input.queueError || base.queue_error || ''),
-    created_at: base.created_at || input.created_at || new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    created_at: base.created_at || input.created_at || now,
+    updated_at: preserveUpdatedAt ? (input.updated_at || base.updated_at || now) : now
   };
 
   record.related_keys = buildRelatedKeys(record);
@@ -496,8 +623,10 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
 function readTasks(tasksFile) {
   const rawTasks = readJsonArray(tasksFile);
   const { tasks, changed } = ensureTaskIds(rawTasks);
-  if (changed) writeJsonArray(tasksFile, tasks);
-  return tasks;
+  const normalizedTasks = tasks.map(task => normalizeTaskRecord(task, task, tasks, { preserveUpdatedAt: true }));
+  const normalizedChanged = JSON.stringify(normalizedTasks) !== JSON.stringify(tasks);
+  if (changed || normalizedChanged) writeJsonArray(tasksFile, normalizedTasks);
+  return normalizedTasks;
 }
 
 function writeTasks(tasksFile, tasks) {
@@ -694,6 +823,7 @@ function buildColumnValues(board, task) {
 }
 
 function buildMondayUpdateBody(task) {
+  const contacts = Array.isArray(task.contacts) ? task.contacts : [];
   const lines = [
     `Task ID: ${task.id}`,
     `Priority: ${task.priority}`,
@@ -709,6 +839,8 @@ function buildMondayUpdateBody(task) {
   if (task.whatsapp_number) lines.push(`Phone: ${task.whatsapp_number}`);
   if (task.amount) lines.push(`Amount: ${task.amount}`);
   if (task.next_step) lines.push(`Next step: ${task.next_step}`);
+  if (task.last_contact_at) lines.push(`Last contact at: ${task.last_contact_at}`);
+  if (contacts.length) lines.push(`Contacts: ${contacts.length}`);
   if (Array.isArray(task.tags) && task.tags.length) lines.push(`Tags: ${task.tags.join(', ')}`);
   if (Array.isArray(task.related_keys) && task.related_keys.length) lines.push(`Related keys: ${task.related_keys.join(', ')}`);
   if (task.last_message_at) lines.push(`Last message at: ${task.last_message_at}`);
@@ -721,6 +853,22 @@ function buildMondayUpdateBody(task) {
     if (task.queue_last_run_at) lines.push(`Last run at: ${task.queue_last_run_at}`);
   }
   if (task.description) lines.push('', 'Description:', task.description);
+  if (task.task_notes) lines.push('', 'Task notes:', task.task_notes);
+  if (contacts.length) {
+    lines.push('', 'Contacts:');
+    for (const contact of contacts.slice(0, 8)) {
+      const detailBits = [];
+      if (contact.status) detailBits.push(contact.status);
+      if (contact.phone) detailBits.push(contact.phone);
+      if (contact.company) detailBits.push(contact.company);
+      if (contact.next_step) detailBits.push(`next: ${contact.next_step}`);
+      lines.push(`- ${contact.name || 'Unnamed contact'}${detailBits.length ? ` (${detailBits.join(' | ')})` : ''}`);
+      if (contact.progress_summary) lines.push(`  Progress: ${contact.progress_summary}`);
+      if (contact.proposal_summary) lines.push(`  Proposal: ${contact.proposal_summary}`);
+      const latestActivity = Array.isArray(contact.activities) && contact.activities.length ? contact.activities[0] : null;
+      if (latestActivity?.summary) lines.push(`  Latest activity: [${latestActivity.timestamp}] ${latestActivity.summary}`);
+    }
+  }
   if (task.queue_plan) lines.push('', 'Queue plan:', task.queue_plan);
   if (task.queue_result) lines.push('', 'Queue result:', task.queue_result);
   if (task.queue_error) lines.push('', 'Queue error:', task.queue_error);
@@ -951,5 +1099,8 @@ module.exports = {
   getMondayBoard,
   ensureTaskBoardSchema,
   inferTaskFromText,
-  normalizeTaskRecord
+  normalizeTaskRecord,
+  normalizeTaskContact,
+  normalizeTaskContactActivity,
+  summarizeTaskContacts
 };

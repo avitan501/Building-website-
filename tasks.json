@@ -1,5 +1,188 @@
 [
   {
+    "id": "TASK-1047",
+    "title": "‏אני רוצה את האופציה שאני אוכל להעלות לך פה קובץ ואני אומר לך מה למחוק מהקובץ PDF הזה ואתה מחזיר לי את אותו קובץ אחרי שמ",
+    "description": "‏אני רוצה את האופציה שאני אוכל להעלות לך פה קובץ ואני אומר לך מה למחוק מהקובץ PDF הזה ואתה מחזיר לי את אותו קובץ אחרי שמחקת את זה אני לא צריך לערוך את הקובץ רק למחוק כמה דברים ממנו אם אין לך את האופציה תמצא כלי שאתה יכול להתקין שיעשה את זה ואתה שולח לי את זה בחזרה",
+    "source_text": "[Telegram telegram:7251997624 2026-04-22T14:35:59.300Z]\n‏אני רוצה את האופציה שאני אוכל להעלות לך פה קובץ ואני אומר לך מה למחוק מהקובץ PDF הזה ואתה מחזיר לי את אותו קובץ אחרי שמחקת את זה אני לא צריך לערוך את הקובץ רק למחוק כמה דברים ממנו אם אין לך את האופציה תמצא כלי שאתה יכול להתקין שיעשה את זה ואתה שולח לי את זה בחזרה",
+    "status": "open",
+    "priority": "normal",
+    "category": "general",
+    "due_date": "",
+    "source": "telegram",
+    "task_type": "task",
+    "customer_name": "",
+    "supplier_name": "",
+    "whatsapp_number": "",
+    "amount": "",
+    "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
+    "tags": [
+      "general"
+    ],
+    "source_chat_id": "telegram:7251997624",
+    "source_contact": "",
+    "conversation_history": [
+      {
+        "timestamp": "2026-04-22T14:35:59.300Z",
+        "source": "telegram",
+        "chat_id": "telegram:7251997624",
+        "contact": "",
+        "body": "‏אני רוצה את האופציה שאני אוכל להעלות לך פה קובץ ואני אומר לך מה למחוק מהקובץ PDF הזה ואתה מחזיר לי את אותו קובץ אחרי שמחקת את זה אני לא צריך לערוך את הקובץ רק למחוק כמה דברים ממנו אם אין לך את האופציה תמצא כלי שאתה יכול להתקין שיעשה את זה ואתה שולח לי את זה בחזרה"
+      }
+    ],
+    "last_message_at": "2026-04-22T14:35:59.300Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
+    "related_keys": [
+      "general",
+      "chat:telegram:7251997624",
+      "type:task",
+      "category:general"
+    ],
+    "monday_item_id": "11817914228",
+    "monday_board_id": "18409684112",
+    "monday_group_id": "topics",
+    "monday_board_name": "New Board",
+    "monday_url": "https://fivetownsbuilders-team.monday.com/boards/18409684112",
+    "queue_enabled": true,
+    "queue_status": "done",
+    "queue_run_mode": "now",
+    "queue_run_after": "2026-04-22T14:36:11.694Z",
+    "queue_locked_at": "2026-04-22T14:36:11.750Z",
+    "queue_last_run_at": "2026-04-22T14:36:24.745Z",
+    "queue_brain": "general-smart",
+    "queue_router_model": "gpt-4.1-mini",
+    "queue_worker_model": "gpt-4.1",
+    "queue_plan": "Provide a way to upload a PDF, specify content to delete, and receive the edited PDF back.\n\nEnable PDF content deletion based on user instructions and return the modified file.\n\nRecommend tools or methods that allow uploading a PDF, selecting or specifying parts to delete, and then downloading the edited PDF. If direct editing here is not possible, suggest reliable software or online services that can perform this task and provide instructions on how to use them.",
+    "queue_result": "1. Outcome  \nDirect PDF upload and editing is not supported in this interface. I cannot receive or return files directly.\n\n2. Recommended actions  \nUse a third-party tool to edit your PDF. Recommended free tools:\n- PDF24 Tools (https://tools.pdf24.org/en/edit-pdf)\n- Smallpdf (https://smallpdf.com/edit-pdf)\n- Sejda (https://www.sejda.com/pdf-editor)\n\n3. Risks or blockers  \n- Privacy: Uploading sensitive documents to third-party sites may risk data exposure.\n- Complex edits: Some tools may not fully erase content, only overlay white boxes.\n\n4. Suggested next step  \nChoose one of the recommended tools, upload your PDF, delete the required content, and download the modified file. If you need step-by-step guidance for a specific tool, let me know.",
+    "queue_error": "",
+    "created_at": "2026-04-22T14:36:11.697Z",
+    "updated_at": "2026-04-22T14:36:26.813Z"
+  },
+  {
+    "id": "TASK-1046",
+    "title": "‏אוקיי אז בוא נעשה את האתר עם העיצוב המינימלי כרגע והדף הראשון שאני רוצה לעבוד עליו זה הדף שהלקוח נמצא בו אחרי שהוא התחב",
+    "description": "‏אוקיי אז בוא נעשה את האתר עם העיצוב המינימלי כרגע והדף הראשון שאני רוצה לעבוד עליו זה הדף שהלקוח נמצא בו אחרי שהוא התחבר בוא נעבוד על הדף הזה תוריד את כל שאר הדפים תתחיל לעבוד על הדף הזה זה דף שהלקוח נמצא בו ואנחנו רואים את הפקודות שיכול לעשות הזמנה וכל מה שהוא נמצא שמה כל מה שקשור לזה . My idea for this website: I will explain it here once. Please remember it. The idea is that every builder that needs material, instead of looking around and starting to get crazy about how much these guys are selling this and how much this guy is selling this, could find everything by me and I do the pricing. I'm going to be shopping for him. I'm going to be busy looking for him, the price in many places, and I'm going to know where is the best place to buy. Also I'm going to be coordinating their shipping instead of him calling the shipping and finding out where the delivery is going to be able to coordinate it.\n\nAnother benefit that I'm giving is that I could be doing it from WhatsApp, meaning the guy could send me a message on WhatsApp and his order would kick in. Another thing is that he's able to send me a blueprint and I could tell you, based on the blueprint, what material it needs, a lot of things to make it easier for the builder. Instead of him looking for material, he's just waiting for the material to get to the job site and he's ready to work.\n\nNow I want to build the first page that the builder logs into. What is he supposed to see when he logs into his account? Forget about anything else. When he logs into his account he could see:\n- project\n- material order\n- those things where every step is now\n\nPlease take this entire message and rewrite it before you send it to the server. Before you send it to the server, please take that idea and deploy it after",
+    "source_text": "[Telegram telegram:-5144403088 2026-04-22T14:34:34.439Z]\n‏אוקיי אז בוא נעשה את האתר עם העיצוב המינימלי כרגע והדף הראשון שאני רוצה לעבוד עליו זה הדף שהלקוח נמצא בו אחרי שהוא התחבר בוא נעבוד על הדף הזה תוריד את כל שאר הדפים תתחיל לעבוד על הדף הזה זה דף שהלקוח נמצא בו ואנחנו רואים את הפקודות שיכול לעשות הזמנה וכל מה שהוא נמצא שמה כל מה שקשור לזה . My idea for this website: I will explain it here once. Please remember it. The idea is that every builder that needs material, instead of looking around and starting to get crazy about how much these guys are selling this and how much this guy is selling this, could find everything by me and I do the pricing. I'm going to be shopping for him. I'm going to be busy looking for him, the price in many places, and I'm going to know where is the best place to buy. Also I'm going to be coordinating their shipping instead of him calling the shipping and finding out where the delivery is going to be able to coordinate it.\n\nAnother benefit that I'm giving is that I could be doing it from WhatsApp, meaning the guy could send me a message on WhatsApp and his order would kick in. Another thing is that he's able to send me a blueprint and I could tell you, based on the blueprint, what material it needs, a lot of things to make it easier for the builder. Instead of him looking for material, he's just waiting for the material to get to the job site and he's ready to work.\n\nNow I want to build the first page that the builder logs into. What is he supposed to see when he logs into his account? Forget about anything else. When he logs into his account he could see:\n- project\n- material order\n- those things where every step is now\n\nPlease take this entire message and rewrite it before you send it to the server. Before you send it to the server, please take that idea and deploy it after",
+    "status": "open",
+    "priority": "normal",
+    "category": "client",
+    "due_date": "",
+    "source": "telegram",
+    "task_type": "workflow",
+    "customer_name": "",
+    "supplier_name": "",
+    "whatsapp_number": "",
+    "amount": "",
+    "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
+    "tags": [
+      "client"
+    ],
+    "source_chat_id": "telegram:-5144403088",
+    "source_contact": "",
+    "conversation_history": [
+      {
+        "timestamp": "2026-04-22T14:34:34.439Z",
+        "source": "telegram",
+        "chat_id": "telegram:-5144403088",
+        "contact": "",
+        "body": "‏אוקיי אז בוא נעשה את האתר עם העיצוב המינימלי כרגע והדף הראשון שאני רוצה לעבוד עליו זה הדף שהלקוח נמצא בו אחרי שהוא התחבר בוא נעבוד על הדף הזה תוריד את כל שאר הדפים תתחיל לעבוד על הדף הזה זה דף שהלקוח נמצא בו ואנחנו רואים את הפקודות שיכול לעשות הזמנה וכל מה שהוא נמצא שמה כל מה שקשור לזה . My idea for this website: I will explain it here once. Please remember it. The idea is that every builder that needs material, instead of looking around and starting to get crazy about how much these guys are selling this and how much this guy is selling this, could find everything by me and I do the pricing. I'm going to be shopping for him. I'm going to be busy looking for him, the price in many places, and I'm going to know where is the best place to buy. Also I'm going to be coordinating their shipping instead of him calling the shipping and finding out where the delivery is going to be able to coordinate it.\n\nAnother benefit that I'm giving is that I could be doing it from WhatsApp, meaning the guy could send me a message on WhatsApp and his order would kick in. Another thing is that he's able to send me a blueprint and I could tell you, based on the blueprint, what material it needs, a lot of things to make it easier for the builder. Instead of him looking for material, he's just waiting for the material to get to the job site and he's ready to work.\n\nNow I want to build the first page that the builder logs into. What is he supposed to see when he logs into his account? Forget about anything else. When he logs into his account he could see:\n- project\n- material order\n- those things where every step is now\n\nPlease take this entire message and rewrite it before you send it to the server. Before you send it to the server, please take that idea and deploy it after"
+      }
+    ],
+    "last_message_at": "2026-04-22T14:34:34.439Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
+    "related_keys": [
+      "client",
+      "chat:telegram:-5144403088",
+      "type:workflow",
+      "category:client"
+    ],
+    "monday_item_id": "11817898349",
+    "monday_board_id": "18409684112",
+    "monday_group_id": "topics",
+    "monday_board_name": "New Board",
+    "monday_url": "https://fivetownsbuilders-team.monday.com/boards/18409684112",
+    "queue_enabled": true,
+    "queue_status": "done",
+    "queue_run_mode": "now",
+    "queue_run_after": "2026-04-22T14:34:41.680Z",
+    "queue_locked_at": "2026-04-22T14:34:41.740Z",
+    "queue_last_run_at": "2026-04-22T14:34:55.421Z",
+    "queue_brain": "general-smart",
+    "queue_router_model": "gpt-4.1-mini",
+    "queue_worker_model": "gpt-4.1",
+    "queue_plan": "Create a minimalistic website focusing on the builder's main dashboard page after login, showing projects, material orders, and order statuses.\n\nDesign and develop the builder's post-login dashboard page with essential order and project info.\n\n1. Remove all other pages from the current website, keeping only the main dashboard page for logged-in builders.\n2. Design the dashboard to display the builder's projects, material orders, and the current status of each order step.\n3. Implement a minimalistic design focusing on clarity and usability.\n4. Remember the core idea: the platform acts as a centralized shopping and shipping coordinator for builders, simplifying material procurement.\n5. Prepare the page to integrate future features like WhatsApp ordering and blueprint-based material estimation.\n6. Before sending any data to the server, rewrite and deploy the entire concept to ensure consistency and clarity.",
+    "queue_result": "1. Outcome  \nA clear plan to design and develop a minimal post-login dashboard page for builders. The dashboard will focus on showing the builder’s current projects, material orders, and the status of each step, with no extra pages or features at this stage.\n\n2. Recommended actions  \n\n- Design a minimal dashboard UI with sections for:\n  - Active projects (list with basic info)\n  - Material orders (list with status updates)\n  - Order status tracking (step-by-step progress)\n- Implement backend endpoints to fetch user-specific project and order data.\n- Integrate WhatsApp order initiation (placeholder or info for now).\n- Allow file upload for blueprints (basic functionality).\n- Remove or hide all other pages/features for now.\n\n3. Risks or blockers  \n\n- Unclear if WhatsApp integration is needed in MVP or just noted for future.\n- Need confirmation on exact data fields for projects/orders.\n- File upload security and storage must be handled properly.\n\n4. Suggested next step  \n\n- Create a wireframe/mockup of the dashboard page for approval before development.  \n- Confirm required data fields and features for MVP with the client.",
+    "queue_error": "",
+    "created_at": "2026-04-22T14:34:41.682Z",
+    "updated_at": "2026-04-22T14:34:57.861Z"
+  },
+  {
+    "id": "TASK-1045",
+    "title": "‏אז אני רוצה שיהיה לי מקום ששמענו על כל המשימות שלי ובכל משימה יהיה לי מתחתיו אנשים שאני יכול להתקשר אליהם בשביל לקדם את",
+    "description": "‏אז אני רוצה שיהיה לי מקום ששמענו על כל המשימות שלי ובכל משימה יהיה לי מתחתיו אנשים שאני יכול להתקשר אליהם בשביל לקדם את המשימה הזאתי ועם כל בנאדם שאני מתקשר אליו יהיה יכול לפתוח אותו ולראות איך התקדמתי איתו מה הוא מציע לי אז תראה איפה הכי חכם לבנות את זה בבקשה תבנה לי את זה בצורה מלאה שאני כבר יכול להתחיל לעבוד עם זה מעכשיו ופשוט להתחיל לשלוח לך שמות של משימות ושמות של אנשים שאני עובד איתם וככה להתחיל לעבוד ולהתקדם עם זה אינשאללה",
+    "source_text": "[Telegram telegram:-1003977559618 2026-04-22T14:31:36.473Z]\n‏אז אני רוצה שיהיה לי מקום ששמענו על כל המשימות שלי ובכל משימה יהיה לי מתחתיו אנשים שאני יכול להתקשר אליהם בשביל לקדם את המשימה הזאתי ועם כל בנאדם שאני מתקשר אליו יהיה יכול לפתוח אותו ולראות איך התקדמתי איתו מה הוא מציע לי אז תראה איפה הכי חכם לבנות את זה בבקשה תבנה לי את זה בצורה מלאה שאני כבר יכול להתחיל לעבוד עם זה מעכשיו ופשוט להתחיל לשלוח לך שמות של משימות ושמות של אנשים שאני עובד איתם וככה להתחיל לעבוד ולהתקדם עם זה אינשאללה",
+    "status": "done",
+    "priority": "normal",
+    "category": "general",
+    "due_date": "",
+    "source": "telegram",
+    "task_type": "task",
+    "customer_name": "",
+    "supplier_name": "",
+    "whatsapp_number": "",
+    "amount": "",
+    "next_step": "Start adding real tasks and contacts in /task-hub or by sending them in chat.",
+    "task_notes": "Built the Task Hub with per-task contacts, call logs, proposals, progress notes, and Monday mirror updates.",
+    "tags": [
+      "general"
+    ],
+    "source_chat_id": "telegram:-1003977559618",
+    "source_contact": "",
+    "conversation_history": [
+      {
+        "timestamp": "2026-04-22T14:31:36.473Z",
+        "source": "telegram",
+        "chat_id": "telegram:-1003977559618",
+        "contact": "",
+        "body": "‏אז אני רוצה שיהיה לי מקום ששמענו על כל המשימות שלי ובכל משימה יהיה לי מתחתיו אנשים שאני יכול להתקשר אליהם בשביל לקדם את המשימה הזאתי ועם כל בנאדם שאני מתקשר אליו יהיה יכול לפתוח אותו ולראות איך התקדמתי איתו מה הוא מציע לי אז תראה איפה הכי חכם לבנות את זה בבקשה תבנה לי את זה בצורה מלאה שאני כבר יכול להתחיל לעבוד עם זה מעכשיו ופשוט להתחיל לשלוח לך שמות של משימות ושמות של אנשים שאני עובד איתם וככה להתחיל לעבוד ולהתקדם עם זה אינשאללה"
+      }
+    ],
+    "last_message_at": "2026-04-22T14:31:36.473Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
+    "related_keys": [
+      "general",
+      "chat:telegram:-1003977559618",
+      "type:task",
+      "category:general"
+    ],
+    "monday_item_id": "11817869856",
+    "monday_board_id": "18409684112",
+    "monday_group_id": "topics",
+    "monday_board_name": "New Board",
+    "monday_url": "https://fivetownsbuilders-team.monday.com/boards/18409684112",
+    "queue_enabled": true,
+    "queue_status": "done",
+    "queue_run_mode": "now",
+    "queue_run_after": "2026-04-22T14:31:41.661Z",
+    "queue_locked_at": "2026-04-22T14:31:41.717Z",
+    "queue_last_run_at": "2026-04-22T14:33:41.400Z",
+    "queue_brain": "website-coder",
+    "queue_router_model": "gpt-4.1-mini",
+    "queue_worker_model": "gpt-4.1-mini",
+    "queue_plan": "Build a task management web app with contacts linked to each task and progress tracking per contact.\n\nCreate a full web app to manage tasks, contacts per task, and track communication progress.\n\nDevelop a web application with a dashboard listing all tasks. Each task expands to show associated contacts. For each contact, allow opening a detail view to log calls, notes, and progress updates. Use a simple backend (e.g., Node.js with Express or Firebase) to store tasks, contacts, and communication logs. Provide a user interface to add tasks, add contacts to tasks, and update progress per contact. Ensure the app is ready to use immediately after deployment.",
+    "queue_result": "Below is a complete frontend + backend web app using Node.js + Express + simple JSON file storage for persistence (so you can deploy and use immediately). The app allows:\n\n- Creating tasks\n- Expanding tasks to show contacts\n- Adding contacts per task\n- Opening a contact detail modal to log calls, notes, progress updates\n- Viewing communication logs per contact\n- Updating contact progress status\n\n---\n\n### Project structure\n\n```\n/project-root\n  /public\n    index.html\n    style.css\n    app.js\n  /data\n    data.json          <-- stores all tasks, contacts, logs\n  server.js            <-- Node.js + Express backend\n  package.json\n  package-lock.json\n```\n\n---\n\n### 1. Backend: `server.js`\n\n- Simple REST API\n- Stores all data in `data/data.json` as:\n```json\n{\n  \"tasks\": [\n    {\n      \"id\": \"task-1\",\n      \"name\": \"Task name\",\n      \"contacts\": [\n        {\n          \"id\": \"contact-1\",\n          \"name\": \"Contact name\",\n          \"progress\": \"Initial\",\n          \"logs\": [\n            {\n              \"timestamp\": 1680000000000,\n              \"type\": \"call\",\n              \"note\": \"Called and discussed X\"\n            }\n          ]\n        }\n      ]\n    }\n  ]\n}\n```\n\n- Supports:\n  - GET `/api/tasks` - get all tasks with contacts and logs\n  - POST `/api/tasks` - create new task `{name}`\n  - POST `/api/tasks/:taskId/contacts` - add new contact `{name}`\n  - POST `/api/tasks/:taskId/contacts/:contactId/logs` - add log `{type, note}`\n  - PATCH `/api/tasks/:taskId/contacts/:contactId/progress` - update progress `{progress}`\n\n---\n\n### 2. Frontend: `public/index.html`, `public/style.css`, `public/app.js`\n\n- Dashboard with task list\n- Expandable tasks showing contacts\n- Add task form\n- Add contact form per task\n- Click contact opens modal to show logs, add logs, update progress\n\n---\n\n### Full code below\n\n---\n\n#### `package.json`\n\n```json\n{\n  \"name\": \"task-contact-manager\",\n  \"version\": \"1.0.0\",\n  \"description\": \"Task and contact communication manager\",\n  \"main\": \"server.js\",\n  \"scripts\": {\n    \"start\": \"node server.js\"\n  },\n  \"dependencies\": {\n    \"express\": \"^4.18.2\",\n    \"cors\": \"^2.8.5\",\n    \"body-parser\": \"^1.20.2\",\n    \"uuid\": \"^9.0.0\"\n  }\n}\n```\n\n---\n\n#### `server.js`\n\n```js\nconst express = require('express');\nconst cors = require('cors');\nconst fs = require('fs');\nconst path = require('path');\nconst bodyParser = require('body-parser');\nconst { v4: uuidv4 } = require('uuid');\n\nconst DATA_PATH = path.join(__dirname, 'data', 'data.json');\n\nconst app = express();\napp.use(cors());\napp.use(bodyParser.json());\napp.use(express.static(path.join(__dirname, 'public')));\n\n// Read data file or initialize\nfunction readData() {\n  try {\n    const raw = fs.readFileSync(DATA_PATH);\n    return JSON.parse(raw);\n  } catch {\n    return { tasks: [] };\n  }\n}\n// Write data file\nfunction writeData(data) {\n  fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));\n}\n\n// GET all tasks with contacts and logs\napp.get('/api/tasks', (req, res) => {\n  const data = readData();\n  res.json(data.tasks);\n});\n\n// POST create new task {name}\napp.post('/api/tasks', (req, res) => {\n  const { name } = req.body;\n  if (!name || !name.trim()) return res.status(400).json({ error: 'Task name required' });\n  const data = readData();\n  const newTask = { id: uuidv4(), name: name.trim(), contacts: [] };\n  data.tasks.push(newTask);\n  writeData(data);\n  res.json(newTask);\n});\n\n// POST add contact to task {name}\napp.post('/api/tasks/:taskId/contacts', (req, res) => {\n  const { taskId } = req.params;\n  const { name } = req.body;\n  if (!name || !name.trim()) return res.status(400).json({ error: 'Contact name required' });\n  const data = readData();\n  const task = data.tasks.find(t => t.id === taskId);\n  if (!task) return res.status(404).json({ error: 'Task not found' });\n  const newContact = {\n    id: uuidv4(),\n    name: name.trim(),\n    progress: '',\n    logs: []\n  };\n  task.contacts.push(newContact);\n  writeData(data);\n  res.json(newContact);\n});\n\n// POST add log to contact {type:'call'|'note', note}\napp.post('/api/tasks/:taskId/contacts/:contactId/logs', (req, res) => {\n  const { taskId, contactId } = req.params;\n  const { type, note } = req.body;\n  if (!type || !note || !note.trim()) return res.status(400).json({ error: 'Type and note required' });\n  const data = readData();\n  const task = data.tasks.find(t => t.id === taskId);\n  if (!task) return res.status(404).json({ error: 'Task not found' });\n  const contact = task.contacts.find(c => c.id === contactId);\n  if (!contact) return res.status(404).json({ error: 'Contact not found' });\n  const logEntry = {\n    timestamp: Date.now(),\n    type,\n    note: note.trim()\n  };\n  contact.logs.push(logEntry);\n  writeData(data);\n  res.json(logEntry);\n});\n\n// PATCH update contact progress {progress}\napp.patch('/api/tasks/:taskId/contacts/:contactId/progress', (req, res) => {\n  const { taskId, contactId } = req.params;\n  const { progress } = req.body;\n  if (typeof progress !== 'string') return res.status(400).json({ error: 'Progress is required' });\n  const data = readData();\n  const task = data.tasks.find(t => t.id === taskId);\n  if (!task) return res.status(404).json({ error: 'Task not found' });\n  const contact = task.contacts.find(c => c.id === contactId);\n  if (!contact) return res.status(404).json({ error: 'Contact not found' });\n  contact.progress = progress.trim();\n  writeData(data);\n  res.json({ success: true });\n});\n\n// Start server\nconst PORT = process.env.PORT || 3000;\napp.listen(PORT, () => {\n  console.log(`Server running on http://localhost:${PORT}`);\n});\n```\n\n---\n\n#### `data/data.json`\n\n```json\n{\n  \"tasks\": []\n}\n```\n\nCreate the `data` folder and place this file inside for persistence.\n\n---\n\n#### `public/index.html`\n\n```html\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\" />\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n  <title>Task & Contact Manager</title>\n  <link rel=\"stylesheet\" href=\"style.css\" />\n</head>\n<body>\n  <header>\n    <h1>ניהול משימות ותקשורת</h1>\n  </header>\n\n  <main>\n    <section id=\"add-task-section\">\n      <h2>הוסף משימה חדשה</h2>\n      <form id=\"add-task-form\">\n        <input type=\"text\" id=\"task-name-input\" placeholder=\"שם המשימה\" required />\n        <button type=\"submit\">הוסף משימה</button>\n      </form>\n    </section>\n\n    <section id=\"tasks-section\">\n      <h2>רשימת משימות</h2>\n      <div id=\"tasks-list\"></div>\n    </section>\n  </main>\n\n  <!-- Contact Detail Modal -->\n  <div id=\"contact-modal\" class=\"modal hidden\">\n    <div class=\"modal-content\">\n      <button class=\"close-btn\" id=\"close-contact-modal\">×</button>\n      <h3 id=\"contact-modal-title\"></h3>\n\n      <div id=\"progress-section\">\n        <label for=\"progress-input\">התקדמות:</label>\n        <input type=\"text\" id=\"progress-input\" placeholder=\"עדכון התקדמות\" />\n        <button id=\"save-progress-btn\">שמור התקדמות</button>\n      </div>\n\n      <hr />\n\n      <div id=\"logs-section\">\n        <h4>רשימת שיחות והערות</h4>\n        <ul id=\"logs-list\"></ul>\n\n        <form id=\"add-log-form\">\n          <select id=\"log-type\">\n            <option value=\"call\">שיחה</option>\n            <option value=\"note\">הערה</option>\n          </select>\n          <textarea id=\"log-note\" rows=\"3\" placeholder=\"כתוב שיחה או הערה...\" required></textarea>\n          <button type=\"submit\">הוסף רשומה</button>\n        </form>\n      </div>\n    </div>\n  </div>\n\n  <script src=\"app.js\"></script>\n</body>\n</html>\n```\n\n---\n\n#### `public/style.css`\n\n```css\n/* Reset & base */\n* {\n  box-sizing: border-box;\n}\nbody {\n  font-family: Arial, sans-serif;\n  margin: 0;\n  padding: 0 1rem 3rem;\n  background: #f9f9f9;\n  color: #222;\n  direction: rtl; /* Hebrew right-to-left */\n}\nheader {\n  background: #007acc;\n  color: white;\n  padding: 1rem;\n  text-align: center;\n}\nh1, h2, h3, h4 {\n  margin: 0 0 0.5rem 0;\n}\n\nmain {\n  max-width: 900px;\n  margin: 1rem auto;\n}\n\n/* Add task form */\n#add-task-form {\n  display: flex;\n  gap: 0.5rem;\n}\n#add-task-form input[type=\"text\"] {\n  flex-grow: 1;\n  padding: 0.5rem;\n  font-size: 1rem;\n}\n#add-task-form button {\n  padding: 0.5rem 1rem;\n  font-size: 1rem;\n  background: #007acc;\n  color: white;\n  border: none;\n  cursor: pointer;\n}\n#add-task-form button:hover {\n  background: #005f99;\n}\n\n/* Tasks list */\n.task {\n  background: white;\n  border-radius: 6px;\n  margin-bottom: 1rem;\n  box-shadow: 0 2px 5px rgba(0,0,0,0.1);\n  padding: 1rem;\n}\n.task-header {\n  display: flex;\n  justify-content: space-between;\n  cursor: pointer;\n  align-items: center;\n}\n.task-name {\n  font-weight: bold;\n  font-size: 1.2rem;\n}\n.toggle-icon {\n  font-size: 1.5rem;\n  user-select: none;\n  transition: transform 0.2s ease;\n}\n.task.expanded .toggle-icon {\n  transform: rotate(90deg);\n}\n\n.contacts-list {\n  margin-top: 1rem;\n  padding-right: 1rem;\n}\n.contact {\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  background: #e9f0fb;\n  padding: 0.5rem 0.75rem;\n  border-radius: 4px;\n  margin-bottom: 0.5rem;\n  cursor: pointer;\n  transition: background 0.2s ease;\n}\n.contact:hover {\n  background: #d0d9f9;\n}\n.contact-name {\n  font-weight: 600;\n}\n.contact-progress {\n  font-style: italic;\n  font-size: 0.9rem;\n  color: #555;\n}\n\n.add-contact-form {\n  margin-top: 0.5rem;\n  display: flex;\n  gap: 0.5rem;\n}\n.add-contact-form input[type=\"text\"] {\n  flex-grow: 1;\n  padding: 0.3rem 0.5rem;\n  font-size: 0.9rem;\n}\n.add-contact-form button {\n  padding: 0.3rem 0.8rem;\n  font-size: 0.9rem;\n  background: #007acc;\n  color: white;\n  border: none;\n  cursor: pointer;\n}\n.add-contact-form button:hover {\n  background: #005f99;\n}\n\n/* Modal */\n.modal {\n  position: fixed;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n  background-color: rgba(0,0,0,0.5);\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  z-index: 999;\n}\n.modal.hidden {\n  display: none;\n}\n.modal-content {\n  background: white;\n  padding: 1rem 1.5rem;\n  border-radius: 8px;\n  width: 90%;\n  max-width: 500px;\n  max-height: 90vh;\n  overflow-y: auto;\n  position: relative;\n  direction: rtl;\n}\n.close-btn {\n  position: absolute;\n  top: 0.5rem;\n  left: 0.5rem;\n  font-size: 1.5rem;\n  background: none;\n  border: none;\n  cursor: pointer;\n  color: #777;\n}\n.close-btn:hover {\n  color: #000;\n}\n\n#progress-section {\n  display: flex;\n  gap: 0.5rem;\n  align-items: center;\n  margin-bottom: 1rem;\n}\n#progress-input {\n  flex-grow: 1;\n  padding: 0.4rem 0.5rem;\n  font-size: 1rem;\n}\n#save-progress-btn {\n  padding: 0.4rem 1rem;\n  background: #007acc;\n  color: white;\n  border: none;\n  cursor: pointer;\n}\n#save-progress-btn:hover {\n  background: #005f99;\n}\n\n/* Logs */\n#logs-list {\n  list-style: none;\n  padding: 0;\n  max-height: 250px;\n  overflow-y: auto;\n  margin-bottom: 1rem;\n  border: 1px solid #ccc;\n  border-radius: 6px;\n  background: #fefefe;\n}\n#logs-list li {\n  padding: 0.5rem;\n  border-bottom: 1px solid #eee;\n}\n#logs-list li:last-child {\n  border-bottom: none;\n}\n.log-type {\n  font-weight: bold;\n  margin-left: 0.5rem;\n}\n.log-timestamp {\n  font-size: 0.8rem;\n  color: #777;\n  margin-left: 0.5rem;\n  white-space: nowrap;\n  direction: ltr;\n  display: inline-block;\n}\n\n/* Add log form */\n#add-log-form {\n  display: flex;\n  flex-direction: column;\n  gap: 0.5rem;\n}\n#add-log-form select, #add-log-form textarea {\n  font-size: 1rem;\n  padding: 0.4rem 0.5rem;\n}\n#add-log-form button {\n  align-self: flex-start;\n  padding: 0.5rem 1rem;\n  background: #007acc;\n  color: white;\n  border: none;\n  cursor: pointer;\n}\n#add-log-form button:hover {\n  background: #005f99;\n}\n```\n\n---\n\n#### `public/app.js`\n\n```js\nconst apiBase = '/api';\n\nconst tasksListEl = document.getElementById('tasks-list');\nconst addTaskForm = document.getElementById('add-task-form');\nconst taskNameInput = document.getElementById('task-name-input');\n\nconst contactModal = document.getElementById('contact-modal');\nconst closeContactModalBtn = document.getElementById('close-contact-modal');\nconst contactModalTitle = document.getElementById('contact-modal-title');\nconst progressInput = document.getElementById('progress-input');\nconst saveProgressBtn",
+    "queue_error": "Fallback used from kimi: Your account org-b1e22767c9c14715924001e6e8fb3ef9 <ak-f9n4qscpffni11frop31> is suspended due to insufficient balance, please recharge your account or check your plan and billing details",
+    "created_at": "2026-04-22T14:31:41.666Z",
+    "updated_at": "2026-04-22T14:41:15.294Z"
+  },
+  {
     "id": "TASK-1044",
     "title": "I want to be the first step customers portal and all the website need to be in English",
     "description": "I want to be the first step customers portal and all the website need to be in English",
@@ -15,6 +198,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
     "tags": [
       "client"
     ],
@@ -30,6 +214,9 @@
       }
     ],
     "last_message_at": "2026-04-22T14:19:55.701Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "client",
       "chat:telegram:-5144403088",
@@ -72,6 +259,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
     "tags": [
       "follow-up"
     ],
@@ -87,6 +275,9 @@
       }
     ],
     "last_message_at": "2026-04-22T14:00:23.879Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "follow-up",
       "chat:telegram:-1003977559618",
@@ -129,6 +320,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
     "tags": [
       "development"
     ],
@@ -144,6 +336,9 @@
       }
     ],
     "last_message_at": "2026-04-22T13:58:21.058Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "development",
       "chat:telegram:-5144403088",
@@ -186,6 +381,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
     "tags": [
       "development"
     ],
@@ -201,6 +397,9 @@
       }
     ],
     "last_message_at": "2026-04-22T03:49:04.303Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "development",
       "type:task",
@@ -242,6 +441,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
     "tags": [
       "development"
     ],
@@ -257,6 +457,9 @@
       }
     ],
     "last_message_at": "2026-04-22T03:48:14.583Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "development",
       "type:task",
@@ -298,6 +501,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "general"
     ],
@@ -313,6 +517,9 @@
       }
     ],
     "last_message_at": "2026-04-22T03:08:07.021Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "general",
       "chat:telegram:7251997624",
@@ -355,6 +562,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "development"
     ],
@@ -370,6 +578,9 @@
       }
     ],
     "last_message_at": "2026-04-21T21:49:17.086Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "development",
       "chat:telegram:7251997624",
@@ -412,6 +623,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "general"
     ],
@@ -427,6 +639,9 @@
       }
     ],
     "last_message_at": "2026-04-21T21:41:31.060Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "general",
       "chat:telegram:7251997624",
@@ -469,6 +684,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "general"
     ],
@@ -484,6 +700,9 @@
       }
     ],
     "last_message_at": "2026-04-21T20:38:15.474Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "general",
       "chat:telegram:7251997624",
@@ -526,6 +745,7 @@
     "whatsapp_number": "+15169398484",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "phone",
       "general"
@@ -542,6 +762,9 @@
       }
     ],
     "last_message_at": "2026-04-21T18:56:17.179Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "phone",
       "general",
@@ -586,6 +809,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "general"
     ],
@@ -601,6 +825,9 @@
       }
     ],
     "last_message_at": "2026-04-21T18:45:32.668Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "general",
       "chat:telegram:7251997624",
@@ -643,6 +870,7 @@
     "whatsapp_number": "+19174007727",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "phone",
       "general"
@@ -659,6 +887,9 @@
       }
     ],
     "last_message_at": "2026-04-21T18:42:44.263Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "phone",
       "general",
@@ -703,6 +934,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "customer",
       "client"
@@ -719,6 +951,9 @@
       }
     ],
     "last_message_at": "2026-04-21T18:38:46.212Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "customer",
       "client",
@@ -763,6 +998,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "general"
     ],
@@ -778,6 +1014,9 @@
       }
     ],
     "last_message_at": "2026-04-21T18:29:40.501Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "general",
       "chat:telegram:7251997624",
@@ -820,6 +1059,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "development"
     ],
@@ -835,6 +1075,9 @@
       }
     ],
     "last_message_at": "2026-04-21T18:28:57.112Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "development",
       "chat:telegram:7251997624",
@@ -877,6 +1120,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "customer",
       "payment"
@@ -900,6 +1144,9 @@
       }
     ],
     "last_message_at": "2026-04-21T18:35:34.149Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "customer",
       "payment",
@@ -944,6 +1191,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "development"
     ],
@@ -959,6 +1207,9 @@
       }
     ],
     "last_message_at": "2026-04-21T16:23:52.426Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "development",
       "chat:telegram:7251997624",
@@ -1001,6 +1252,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "",
+    "task_notes": "",
     "tags": [
       "general"
     ],
@@ -1016,6 +1268,9 @@
       }
     ],
     "last_message_at": "2026-04-22T03:27:36.905Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "general",
       "chat:telegram:-1003977559618",
@@ -1058,6 +1313,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
     "tags": [
       "development"
     ],
@@ -1073,6 +1329,9 @@
       }
     ],
     "last_message_at": "2026-04-22T03:35:23.401Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "development",
       "type:task",
@@ -1114,6 +1373,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "לדחות את הצילומים לשבוע הבא",
+    "task_notes": "",
     "tags": [
       "next-step",
       "general"
@@ -1130,6 +1390,9 @@
       }
     ],
     "last_message_at": "2026-04-22T03:28:52.372Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "next-step",
       "general",
@@ -1142,6 +1405,18 @@
     "monday_group_id": "topics",
     "monday_board_name": "New Board",
     "monday_url": "https://fivetownsbuilders-team.monday.com/boards/18409684112",
+    "queue_enabled": false,
+    "queue_status": "",
+    "queue_run_mode": "",
+    "queue_run_after": "",
+    "queue_locked_at": "",
+    "queue_last_run_at": "",
+    "queue_brain": "",
+    "queue_router_model": "",
+    "queue_worker_model": "",
+    "queue_plan": "",
+    "queue_result": "",
+    "queue_error": "",
     "created_at": "2026-04-22T03:28:52.373Z",
     "updated_at": "2026-04-22T03:28:54.110Z"
   },
@@ -1161,6 +1436,7 @@
     "whatsapp_number": "",
     "amount": "",
     "next_step": "לקבוע התקנה ליום שישי",
+    "task_notes": "",
     "tags": [
       "next-step",
       "general"
@@ -1177,6 +1453,9 @@
       }
     ],
     "last_message_at": "2026-04-22T03:28:02.386Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
     "related_keys": [
       "next-step",
       "general",
@@ -1189,6 +1468,18 @@
     "monday_group_id": "topics",
     "monday_board_name": "New Board",
     "monday_url": "https://fivetownsbuilders-team.monday.com/boards/18409684112",
+    "queue_enabled": false,
+    "queue_status": "",
+    "queue_run_mode": "",
+    "queue_run_after": "",
+    "queue_locked_at": "",
+    "queue_last_run_at": "",
+    "queue_brain": "",
+    "queue_router_model": "",
+    "queue_worker_model": "",
+    "queue_plan": "",
+    "queue_result": "",
+    "queue_error": "",
     "created_at": "2026-04-22T03:28:02.388Z",
     "updated_at": "2026-04-22T03:28:52.369Z"
   }

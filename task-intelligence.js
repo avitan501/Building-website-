@@ -42,6 +42,31 @@ function parseEnvFile(filePath) {
   return env;
 }
 
+function normalizePhone(value) {
+  return String(value || '').replace(/[^\d+]/g, '');
+}
+
+function extractNamedField(text, patterns, fallback = '') {
+  for (const pattern of patterns) {
+    const match = String(text || '').match(pattern);
+    if (match?.[1]) return match[1].trim();
+  }
+  return fallback;
+}
+
+function extractAmount(text) {
+  const match = String(text || '').match(/(?:amount|total|sum|price|budget|סה["׳']?כ|מחיר|עלות|תקציב)\s*[:\-]?\s*([₪$€]?\s?\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?\s?[₪$€])/i)
+    || String(text || '').match(/([₪$€]\s?\d+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?\s?[₪$€])/);
+  return match?.[1]?.trim() || '';
+}
+
+function normalizeTags(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .map(tag => String(tag || '').trim())
+    .filter(Boolean))];
+}
+
 function resolveMondayConfig() {
   const env = {
     MONDAY_API_TOKEN: process.env.MONDAY_API_TOKEN || '',
@@ -150,6 +175,14 @@ function inferDueDate(text) {
     return formatDate(date);
   }
 
+  const isoMatch = value.match(/\b(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})\b/);
+  if (isoMatch) {
+    const year = isoMatch[1];
+    const month = String(Number(isoMatch[2])).padStart(2, '0');
+    const day = String(Number(isoMatch[3])).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   const match = value.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/);
   if (!match) return '';
   const day = String(Number(match[1])).padStart(2, '0');
@@ -161,6 +194,7 @@ function inferDueDate(text) {
 function inferPriority(text) {
   const value = normalizeTaskText(text).toLowerCase();
   if (value.includes('urgent') || value.includes('asap') || value.includes('today') || value.includes('immediately') || value.includes('דחוף') || value.includes('היום') || value.includes('מיידי')) return 'high';
+  if (value.includes('low') || value.includes('later') || value.includes('לא דחוף') || value.includes('כשתוכל') || value.includes('כשיהיה זמן')) return 'low';
   if (value.includes('soon') || value.includes('follow up') || value.includes('מעקב') || value.includes('בהמשך') || value.includes('כשאפשר')) return 'normal';
   return 'normal';
 }
@@ -176,27 +210,102 @@ function inferCategory(text) {
   return 'general';
 }
 
+function inferTaskType(text, structured = {}) {
+  const value = normalizeTaskText(text).toLowerCase();
+  if (value.includes('remind') || value.includes('reminder') || value.includes('תזכיר')) return 'reminder';
+  if (value.includes('follow up') || value.includes('מעקב') || value.includes('לחזור')) return 'follow-up';
+  if (structured.amount || value.includes('payment') || value.includes('תשלום') || value.includes('invoice') || value.includes('חשבונית')) return 'payment';
+  if (structured.customer_name || structured.supplier_name || value.includes('order') || value.includes('הזמנה')) return 'workflow';
+  return 'task';
+}
+
+function inferTitleFromText(text) {
+  const lines = normalizeTaskText(text).split('\n').map(line => line.trim()).filter(Boolean);
+  const meaningfulLine = lines.find(line => !/^(customer|supplier|amount|phone|next step|status|priority|category|לקוח|ספק|סכום|טלפון|השלב הבא|סטטוס|עדיפות|קטגוריה)\s*[:\-]/i.test(line));
+  const candidate = meaningfulLine || lines[0] || normalizeTaskText(text);
+  const sentence = candidate.split(/[.!?]/)[0] || candidate;
+  return normalizeTitle(sentence).slice(0, 120);
+}
+
+function extractStructuredTaskFields(text, overrides = {}) {
+  const value = normalizeTaskText(text);
+  const amount = overrides.amount || extractAmount(value);
+  const customerName = overrides.customer_name || overrides.customerName || extractNamedField(value, [
+    /customer(?: name)?\s*[:\-]\s*([^\n.]+)/i,
+    /לקוח(?:ה)?\s*[:\-]\s*([^\n.]+)/i,
+    /customer\s+([a-zא-ת0-9 .'-]{2,})/i
+  ], '');
+
+  const supplierName = overrides.supplier_name || overrides.supplierName || extractNamedField(value, [
+    /supplier(?: name)?\s*[:\-]\s*([^\n.]+)/i,
+    /vendor(?: name)?\s*[:\-]\s*([^\n.]+)/i,
+    /ספק\s*[:\-]\s*([^\n.]+)/i
+  ], '');
+
+  const phoneMatch = value.match(/\+?\d[\d\s().-]{7,}\d/);
+  const whatsappNumber = normalizePhone(overrides.whatsapp_number || overrides.whatsappNumber || extractNamedField(value, [
+    /whatsapp(?: number)?\s*[:\-]\s*(.+)/i,
+    /phone(?: number)?\s*[:\-]\s*(.+)/i,
+    /טלפון\s*[:\-]\s*(.+)/i
+  ], phoneMatch?.[0] || ''));
+
+  const nextStep = overrides.next_step || overrides.nextStep || extractNamedField(value, [
+    /next step\s*[:\-]\s*([^\n]+)/i,
+    /next action\s*[:\-]\s*([^\n]+)/i,
+    /השלב הבא\s*[:\-]\s*([^\n]+)/i,
+    /צעד הבא\s*[:\-]\s*([^\n]+)/i
+  ], '');
+
+  const tags = normalizeTags([
+    ...(Array.isArray(overrides.tags) ? overrides.tags : []),
+    customerName ? 'customer' : '',
+    supplierName ? 'supplier' : '',
+    whatsappNumber ? 'phone' : '',
+    amount ? 'amount' : '',
+    nextStep ? 'next-step' : '',
+    inferCategory(value)
+  ]);
+
+  return {
+    customer_name: customerName,
+    supplier_name: supplierName,
+    whatsapp_number: whatsappNumber,
+    amount,
+    next_step: nextStep,
+    task_type: overrides.task_type || overrides.taskType || inferTaskType(value, { customer_name: customerName, supplier_name: supplierName, amount }),
+    tags
+  };
+}
+
 function inferSuggestedStatus(task) {
   if (task.status) return task.status;
-  if (task.category === 'follow-up') return 'follow-up';
+  if (task.category === 'follow-up' || task.task_type === 'follow-up') return 'follow-up';
   return 'open';
 }
 
 function inferTaskFromText(text, overrides = {}) {
   const cleanText = normalizeTaskText(text).replace(/^task:\s*/i, '').trim();
-  const firstLine = cleanText.split('\n')[0] || cleanText;
-  const title = normalizeTitle(overrides.title || firstLine).slice(0, 120);
-
-  return {
-    title,
+  const structured = extractStructuredTaskFields(cleanText, overrides);
+  const task = {
+    title: normalizeTitle(overrides.title || inferTitleFromText(cleanText)).slice(0, 120),
     description: normalizeTaskText(overrides.description || cleanText),
-    source_text: cleanText,
+    source_text: normalizeTaskText(overrides.source_text || overrides.sourceText || cleanText),
     due_date: overrides.due_date || overrides.dueDate || inferDueDate(cleanText),
     priority: overrides.priority || inferPriority(cleanText),
     category: overrides.category || inferCategory(cleanText),
-    status: overrides.status || inferSuggestedStatus(overrides),
-    source: overrides.source || 'chat'
+    status: overrides.status || '',
+    source: overrides.source || 'chat',
+    task_type: structured.task_type,
+    customer_name: structured.customer_name,
+    supplier_name: structured.supplier_name,
+    whatsapp_number: structured.whatsapp_number,
+    amount: structured.amount,
+    next_step: structured.next_step,
+    tags: structured.tags
   };
+
+  task.status = inferSuggestedStatus(task);
+  return task;
 }
 
 function nextTaskId(tasks) {
@@ -239,6 +348,13 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
     category: input.category || base.category || 'general',
     due_date: input.due_date || input.dueDate || base.due_date || '',
     source: input.source || base.source || 'manual',
+    task_type: input.task_type || input.taskType || base.task_type || 'task',
+    customer_name: normalizeTaskText(input.customer_name || input.customerName || base.customer_name || ''),
+    supplier_name: normalizeTaskText(input.supplier_name || input.supplierName || base.supplier_name || ''),
+    whatsapp_number: normalizePhone(input.whatsapp_number || input.whatsappNumber || base.whatsapp_number || ''),
+    amount: normalizeTaskText(input.amount || base.amount || ''),
+    next_step: normalizeTaskText(input.next_step || input.nextStep || base.next_step || ''),
+    tags: normalizeTags(input.tags || base.tags || []),
     monday_item_id: input.monday_item_id || input.mondayItemId || base.monday_item_id || '',
     monday_board_id: input.monday_board_id || input.mondayBoardId || base.monday_board_id || '',
     monday_group_id: input.monday_group_id || input.mondayGroupId || base.monday_group_id || '',
@@ -286,31 +402,145 @@ function chooseGroup(board, task) {
   return matched?.id || groups[0].id;
 }
 
+function matchesColumnTitle(column, patterns = []) {
+  const title = String(column?.title || '').toLowerCase();
+  return patterns.some(pattern => title.includes(String(pattern).toLowerCase()));
+}
+
+function findBoardColumn(columns, patterns = [], allowedTypes = []) {
+  return columns.find(column => {
+    const typeOk = !allowedTypes.length || allowedTypes.includes(column.type);
+    return typeOk && matchesColumnTitle(column, patterns);
+  }) || null;
+}
+
+async function createMondayColumn(boardId, title, columnType = 'text') {
+  const mutation = `
+    mutation ($boardId: ID!, $title: String!, $columnType: ColumnType!) {
+      create_column(board_id: $boardId, title: $title, column_type: $columnType) {
+        id
+        title
+        type
+      }
+    }
+  `;
+
+  const data = await mondayRequest(mutation, {
+    boardId: String(boardId),
+    title,
+    columnType
+  });
+
+  return data?.create_column || null;
+}
+
+async function ensureBoardColumns(board, task) {
+  const columns = Array.isArray(board?.columns) ? [...board.columns] : [];
+  const definitions = [
+    { title: 'Priority', type: 'text', needed: true },
+    { title: 'Category', type: 'text', needed: true },
+    { title: 'Source', type: 'text', needed: true },
+    { title: 'Task ID', type: 'text', needed: true },
+    { title: 'Description', type: 'long_text', needed: true },
+    { title: 'Task Type', type: 'text', needed: Boolean(task.task_type) },
+    { title: 'Customer', type: 'text', needed: Boolean(task.customer_name) },
+    { title: 'Supplier', type: 'text', needed: Boolean(task.supplier_name) },
+    { title: 'Phone', type: 'text', needed: Boolean(task.whatsapp_number) },
+    { title: 'Amount', type: 'text', needed: Boolean(task.amount) },
+    { title: 'Next Step', type: 'long_text', needed: Boolean(task.next_step) },
+    { title: 'Tags', type: 'text', needed: Array.isArray(task.tags) && task.tags.length > 0 }
+  ];
+
+  for (const definition of definitions) {
+    if (!definition.needed) continue;
+    const existing = columns.find(column => String(column.title || '').toLowerCase() === definition.title.toLowerCase());
+    if (existing) continue;
+    try {
+      const created = await createMondayColumn(board.id, definition.title, definition.type);
+      if (created) columns.push(created);
+    } catch {
+      // Best effort: if column creation fails, task data still goes into the update body.
+    }
+  }
+
+  return { ...board, columns };
+}
+
+function toMondayStatusLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return 'Working on it';
+  if (['done', 'completed', 'closed', 'resolved'].includes(normalized)) return 'Done';
+  if (['blocked', 'stuck', 'error'].includes(normalized)) return 'Stuck';
+  return 'Working on it';
+}
+
 function buildColumnValues(board, task) {
   const columns = Array.isArray(board?.columns) ? board.columns : [];
   const values = {};
 
-  const dateColumn = columns.find(column => column.type === 'date');
-  if (dateColumn && task.due_date) {
-    values[dateColumn.id] = { date: task.due_date };
-  }
+  const setColumnValue = (column, rawValue) => {
+    if (!column || rawValue === undefined || rawValue === null || rawValue === '') return;
+    if (column.type === 'date') {
+      values[column.id] = { date: String(rawValue) };
+      return;
+    }
+    if (column.type === 'status') {
+      values[column.id] = { label: toMondayStatusLabel(rawValue) };
+      return;
+    }
+    values[column.id] = String(rawValue).slice(0, 1900);
+  };
 
-  const textColumn = columns.find(column => ['text', 'long_text'].includes(column.type) && /summary|description|notes|details|הערות|תיאור/i.test(column.title));
-  if (textColumn && (task.description || task.source_text)) {
-    values[textColumn.id] = String(task.description || task.source_text).slice(0, 1900);
-  }
+  const dateColumn = findBoardColumn(columns, ['date', 'due', 'deadline'], ['date']) || columns.find(column => column.type === 'date');
+  const statusColumn = findBoardColumn(columns, ['status', 'state'], ['status']) || columns.find(column => column.type === 'status');
+  const descriptionColumn = findBoardColumn(columns, ['description', 'details', 'summary', 'notes', 'תיאור', 'הערות'], ['text', 'long_text']);
+  const priorityColumn = findBoardColumn(columns, ['priority', 'עדיפות'], ['text', 'long_text']);
+  const categoryColumn = findBoardColumn(columns, ['category', 'קטגוריה'], ['text', 'long_text']);
+  const sourceColumn = findBoardColumn(columns, ['source', 'מקור'], ['text', 'long_text']);
+  const taskIdColumn = findBoardColumn(columns, ['task id', 'taskid', 'מזהה'], ['text', 'long_text']);
+  const taskTypeColumn = findBoardColumn(columns, ['task type', 'type', 'סוג'], ['text', 'long_text']);
+  const customerColumn = findBoardColumn(columns, ['customer', 'client', 'לקוח'], ['text', 'long_text']);
+  const supplierColumn = findBoardColumn(columns, ['supplier', 'vendor', 'ספק'], ['text', 'long_text']);
+  const phoneColumn = findBoardColumn(columns, ['phone', 'whatsapp', 'טלפון'], ['text', 'long_text']);
+  const amountColumn = findBoardColumn(columns, ['amount', 'price', 'budget', 'סכום', 'מחיר'], ['text', 'long_text']);
+  const nextStepColumn = findBoardColumn(columns, ['next step', 'next action', 'השלב הבא', 'צעד הבא'], ['text', 'long_text']);
+  const tagsColumn = findBoardColumn(columns, ['tags', 'labels', 'תגיות'], ['text', 'long_text']);
+
+  setColumnValue(dateColumn, task.due_date);
+  setColumnValue(statusColumn, task.status || 'open');
+  setColumnValue(descriptionColumn, task.description || task.source_text);
+  setColumnValue(priorityColumn, task.priority);
+  setColumnValue(categoryColumn, task.category);
+  setColumnValue(sourceColumn, task.source);
+  setColumnValue(taskIdColumn, task.id);
+  setColumnValue(taskTypeColumn, task.task_type);
+  setColumnValue(customerColumn, task.customer_name);
+  setColumnValue(supplierColumn, task.supplier_name);
+  setColumnValue(phoneColumn, task.whatsapp_number);
+  setColumnValue(amountColumn, task.amount);
+  setColumnValue(nextStepColumn, task.next_step);
+  setColumnValue(tagsColumn, Array.isArray(task.tags) ? task.tags.join(', ') : '');
 
   return Object.keys(values).length ? values : null;
 }
 
 function buildMondayUpdateBody(task) {
   const lines = [
+    `Task ID: ${task.id}`,
     `Priority: ${task.priority}`,
     `Category: ${task.category}`,
-    `Status: ${task.status}`
+    `Status: ${task.status}`,
+    `Source: ${task.source}`,
+    `Type: ${task.task_type || 'task'}`
   ];
 
   if (task.due_date) lines.push(`Due: ${task.due_date}`);
+  if (task.customer_name) lines.push(`Customer: ${task.customer_name}`);
+  if (task.supplier_name) lines.push(`Supplier: ${task.supplier_name}`);
+  if (task.whatsapp_number) lines.push(`Phone: ${task.whatsapp_number}`);
+  if (task.amount) lines.push(`Amount: ${task.amount}`);
+  if (task.next_step) lines.push(`Next step: ${task.next_step}`);
+  if (Array.isArray(task.tags) && task.tags.length) lines.push(`Tags: ${task.tags.join(', ')}`);
   if (task.description) lines.push('', 'Description:', task.description);
   if (task.source_text && task.source_text !== task.description) lines.push('', 'Source text:', task.source_text);
 
@@ -326,7 +556,7 @@ async function syncTaskToMonday(task) {
     return { skipped: true, reason: 'monday board not found' };
   }
 
-  const board = boardInfo.board;
+  const board = await ensureBoardColumns(boardInfo.board, task);
   const groupId = chooseGroup(board, task);
   const columnValues = buildColumnValues(board, task);
 

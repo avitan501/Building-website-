@@ -44,11 +44,19 @@ function normalizeText(value) {
 }
 
 function cleanupSourceText(value) {
-  return normalizeText(String(value || '')
-    .replace(/^\[[^\]]+\]\s*/g, '')
-    .replace(/^Conversation info \(untrusted metadata\):[\s\S]*?```\s*/i, '')
-    .replace(/^Sender \(untrusted metadata\):[\s\S]*?```\s*/i, '')
-    .replace(/```/g, ''));
+  let text = String(value || '');
+
+  text = text.replace(/^\[[^\]]+\]\s*/g, '');
+  text = text.replace(/Conversation info \(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi, '');
+  text = text.replace(/Sender \(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi, '');
+  text = text.replace(/Conversation info \(untrusted metadata\):\s*json\s*\{[\s\S]*?\}\s*/gi, '');
+  text = text.replace(/Sender \(untrusted metadata\):\s*json\s*\{[\s\S]*?\}\s*/gi, '');
+  text = text.replace(/```/g, '');
+  text = text.replace(/<media:[^>]+>/gi, '');
+  text = text.replace(/^---\s*Queued\s*#\d+.*$/gim, '');
+  text = text.replace(/^To send an image back,.*$/gim, '');
+
+  return normalizeText(text);
 }
 
 function looksLikeTask(text, source = 'generic') {
@@ -57,14 +65,17 @@ function looksLikeTask(text, source = 'generic') {
   if (value.length < 4) return false;
 
   const negativePhrases = [
-    'חח', 'חחח', 'lol', 'ok', 'okay', 'correct?', 'crazy ai', 'is it ai?', 'no problem', 'thats crazy', "that's crazy"
+    'חח', 'חחח', 'lol', 'ok', 'okay', 'hi', 'hello', 'thanks', 'thank you', 'correct?', 'crazy ai', 'is it ai?', 'no problem', 'thats crazy', "that's crazy"
   ];
   if (negativePhrases.some(phrase => value === phrase || value.startsWith(`${phrase}\n`))) return false;
+  if (/^(האם|can you|could you|do you|are you|what|why|איך|מה|למה|מתי)\b/.test(value) && !/(task:|todo|need to|צריך|חייב|תזכיר|follow up|לבדוק|להתקשר|לשלוח|לעדכן|לסגור)/.test(value)) return false;
 
   const explicitTaskSignals = [
-    'task:', 'todo', 'need to', 'צריך', 'חייב', 'לבדוק', 'לחזור', 'להתקשר', 'לשלוח', 'להכין', 'לעדכן', 'לסגור', 'follow up', 'call ', 'send ', 'check ', 'fix ', 'build '
+    'task:', 'todo', 'need to', 'please add', 'create task', 'צריך', 'חייב', 'תזכיר', 'לבדוק', 'לחזור', 'להתקשר', 'לשלוח', 'להכין', 'לעדכן', 'לסגור', 'לטפל', 'לקבוע', 'לברר', 'follow up', 'call ', 'send ', 'check ', 'fix ', 'build '
   ];
   if (explicitTaskSignals.some(signal => value.includes(signal))) return true;
+  if (/^(ל[א-ת]{2,}|to\s+[a-z])/.test(value)) return true;
+  if (/(מחר|היום|מיידי|urgent|asap|בהמשך|כשאפשר)/.test(value) && /(ל[א-ת]{2,}|call|send|check|fix|follow up)/.test(value)) return true;
 
   const customerActionSignals = [
     'תשלום', 'payment', 'invoice', 'bill', 'how much', 'price', 'quote', 'wire', 'owe money', 'where are', 'problem', 'issue', 'order', 'הזמנה', 'מחיר', 'בעיה', 'לחזור', 'מעקב', 'deliver', 'shipment', 'supplier', 'client', 'customer'
@@ -85,9 +96,13 @@ function buildTaskText(entry) {
 
 function buildTaskOverrides(entry) {
   const cleanBody = cleanupSourceText(entry.body);
+  const singleLineTitle = cleanBody && !cleanBody.includes('\n') && cleanBody.length <= 120
+    ? cleanBody
+    : '';
+
   return {
     source: entry.source,
-    title: cleanBody.slice(0, 120),
+    ...(singleLineTitle ? { title: singleLineTitle } : {}),
     description: cleanBody,
     source_text: buildTaskText(entry)
   };

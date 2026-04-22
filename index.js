@@ -28,6 +28,13 @@ const {
   addTaskContactActivity,
   renderTaskHubPage
 } = require('./task-hub');
+const {
+  buildQueueSnapshot,
+  markQueueTaskDone,
+  requeueQueueTask,
+  archiveQueueTask,
+  renderQueueDashboardPage
+} = require('./queue-dashboard');
 const app = express();
 
 app.use(express.json({ limit: '1mb' }));
@@ -1555,95 +1562,7 @@ app.get(['/tasks', '/task-hub'], (req, res) => {
 });
 
 app.get('/ops/queue', (req, res) => {
-  const summary = getQueueStatus(tasksFile);
-  const queueTasks = listQueueTasks(tasksFile).slice(0, 50);
-  const counts = Object.entries(summary.counts || {})
-    .map(([key, value]) => `<span class="pill"><strong>${escapeHtml(key)}</strong> ${escapeHtml(value)}</span>`)
-    .join(' ');
-
-  const rows = queueTasks.map(task => `
-    <tr>
-      <td>${escapeHtml(task.id || '-')}</td>
-      <td>${escapeHtml(task.title || '')}</td>
-      <td>${escapeHtml(task.queue_status || '-')}</td>
-      <td>${escapeHtml(task.queue_run_mode || '-')}</td>
-      <td>${escapeHtml(task.queue_brain || '-')}</td>
-      <td>${escapeHtml(task.priority || '-')}</td>
-      <td>${escapeHtml(task.updated_at || '-')}</td>
-      <td>${task.monday_url ? `<a href="${escapeHtml(task.monday_url)}" target="_blank" rel="noreferrer">Monday</a>` : '-'}</td>
-    </tr>
-    <tr>
-      <td colspan="8" class="details">
-        ${task.queue_plan ? `<div><strong>Plan:</strong><pre>${escapeHtml(task.queue_plan)}</pre></div>` : ''}
-        ${task.queue_result ? `<div><strong>Result:</strong><pre>${escapeHtml(task.queue_result)}</pre></div>` : ''}
-        ${task.queue_error ? `<div><strong>Error:</strong><pre>${escapeHtml(task.queue_error)}</pre></div>` : ''}
-      </td>
-    </tr>
-  `).join('');
-
-  res.send(`
-    <html>
-      <head>
-        <title>Agent Queue</title>
-        <meta http-equiv="refresh" content="20" />
-        <style>
-          body { font-family: Inter, Arial, sans-serif; padding: 24px; background: #0b1020; color: #e5e7eb; }
-          a { color: #93c5fd; text-decoration: none; }
-          .top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 20px 0; }
-          .card { background: #11182d; border: 1px solid #24304d; border-radius: 12px; padding: 16px; }
-          .pill { display: inline-flex; gap: 8px; align-items: center; background: #17213a; border: 1px solid #2a3a5d; border-radius: 999px; padding: 6px 10px; margin: 4px 6px 0 0; }
-          table { width: 100%; border-collapse: collapse; background: #11182d; border-radius: 12px; overflow: hidden; }
-          th, td { border-bottom: 1px solid #24304d; padding: 12px; text-align: left; vertical-align: top; }
-          th { background: #17213a; }
-          .details { background: #0f172a; }
-          pre { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; font-family: ui-monospace, SFMono-Regular, monospace; }
-          .muted { color: #93a4c3; }
-        </style>
-      </head>
-      <body>
-        <div class="top">
-          <div>
-            <h1>🧠 Agent Queue</h1>
-            <p class="muted">Auto-refresh every 20 seconds. Local queue is the source of truth, Monday is the live mirror.</p>
-          </div>
-          <div>
-            <a href="/ops">Back to ops</a>
-          </div>
-        </div>
-
-        <div class="grid">
-          <div class="card"><strong>Total queue tasks</strong><div>${escapeHtml(summary.totals?.queueTasks || 0)}</div></div>
-          <div class="card"><strong>Total tasks</strong><div>${escapeHtml(summary.totals?.tasks || 0)}</div></div>
-          <div class="card"><strong>Queue enabled</strong><div>${escapeHtml(summary.enabled ? 'yes' : 'no')}</div></div>
-          <div class="card"><strong>Next up</strong><div>${escapeHtml(summary.nextUp?.id || 'none')}</div></div>
-        </div>
-
-        <div class="card" style="margin-bottom: 18px;">
-          <strong>Status buckets</strong>
-          <div>${counts || '<span class="muted">No queued tasks yet</span>'}</div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Mode</th>
-              <th>Brain</th>
-              <th>Priority</th>
-              <th>Updated</th>
-              <th>Mirror</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows || '<tr><td colspan="8">No queue tasks yet</td></tr>'}
-          </tbody>
-        </table>
-      </body>
-    </html>
-  `);
+  res.send(renderQueueDashboardPage());
 });
 
 app.get('/orders', (req, res) => {
@@ -1698,6 +1617,49 @@ app.get('/api/tasks', (req, res) => {
 
 app.get('/api/task-hub', (req, res) => {
   res.json(buildTaskHubSnapshot(tasksFile));
+});
+
+app.get('/api/queue-dashboard', (req, res) => {
+  res.json(buildQueueSnapshot(tasksFile));
+});
+
+app.post('/api/queue-dashboard/tasks/:taskId/done', async (req, res) => {
+  try {
+    const result = await markQueueTaskDone(tasksFile, req.params.taskId);
+    if (!result.ok) {
+      res.status(result.error === 'task not found' ? 404 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/queue-dashboard/tasks/:taskId/requeue', async (req, res) => {
+  try {
+    const result = await requeueQueueTask(tasksFile, req.params.taskId);
+    if (!result.ok) {
+      res.status(result.error === 'task not found' ? 404 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/queue-dashboard/tasks/:taskId/archive', async (req, res) => {
+  try {
+    const result = await archiveQueueTask(tasksFile, req.params.taskId);
+    if (!result.ok) {
+      res.status(result.error === 'task not found' ? 404 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 app.post('/api/task-hub/tasks', async (req, res) => {

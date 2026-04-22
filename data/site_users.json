@@ -1,0 +1,18 @@
+[
+  {
+    "id": "SITEUSER-13226ec9dd",
+    "full_name": "Test User",
+    "phone": "0501234568",
+    "password_salt": "6f64c9ba2ea7f145015b1cdf75948456",
+    "password_hash": "e91c134e749c98c8754f54119e3e012d492520a4fce6ef31ef8d3057a30e5a0f26c76d304f94584645852f1180dcd08960fccbedff264fd93501ef3fdb09585e",
+    "account_status": "חשבון נוצר, ממתין לחיבור נתונים",
+    "login_methods": [
+      "phone"
+    ],
+    "created_at": "2026-04-22T03:54:25.903Z",
+    "updated_at": "2026-04-22T03:54:25.903Z",
+    "last_login_at": "2026-04-22T03:54:25.903Z",
+    "session_token": "a495c00e882676842a9d68b8989edb63085942cd199dd2d8",
+    "session_expires_at": "2026-06-06T03:54:25.903Z"
+  }
+]

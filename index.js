@@ -116,6 +116,10 @@ function normalizePhone(value) {
   return String(value || '').replace(/[^\d+]/g, '');
 }
 
+function normalizeText(value) {
+  return String(value || '').replace(/\r/g, '').trim();
+}
+
 function createPasswordRecord(password) {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(String(password || ''), salt, 64).toString('hex');
@@ -449,6 +453,52 @@ function renderEntryPage(cfg, flash = {}) {
             color: #5f6368;
             line-height: 1.6;
           }
+          .account-links {
+            margin-top: 18px;
+            border-top: 1px solid rgba(17,17,17,0.08);
+            padding-top: 8px;
+          }
+          .account-link {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(17,17,17,0.08);
+          }
+          .account-link:last-child {
+            border-bottom: 0;
+            padding-bottom: 0;
+          }
+          .account-link-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            background: rgba(249,99,2,0.1);
+            color: var(--accent);
+            font-size: 20px;
+            flex: 0 0 auto;
+          }
+          .account-link-copy {
+            flex: 1;
+          }
+          .account-link-copy strong {
+            display: block;
+            font-size: 15px;
+            margin-bottom: 4px;
+          }
+          .account-link-copy span {
+            display: block;
+            color: #5f6368;
+            font-size: 13px;
+            line-height: 1.5;
+          }
+          .account-link-arrow {
+            color: #90959c;
+            font-size: 18px;
+          }
           .divider {
             display: flex;
             align-items: center;
@@ -633,6 +683,41 @@ function renderEntryPage(cfg, flash = {}) {
 
               <div class="security-note">הסיסמה נשמרת בשרת בצורה מוצפנת. כדי להפעיל Google אמיתי, צריך לחבר Google OAuth.</div>
               <div class="toggle-line">נבנה את האתר דף דף. הדף הזה הוא דף הכניסה והחזרה לחשבון.</div>
+
+              <div class="account-links">
+                <div class="account-link">
+                  <div class="account-link-icon">◎</div>
+                  <div class="account-link-copy">
+                    <strong>Track Order</strong>
+                    <span>מכאן הלקוח יוכל לעקוב אחרי מצב הזמנה וחשבון.</span>
+                  </div>
+                  <div class="account-link-arrow">‹</div>
+                </div>
+                <div class="account-link">
+                  <div class="account-link-icon">▣</div>
+                  <div class="account-link-copy">
+                    <strong>Cards & Accounts</strong>
+                    <span>כניסה קבועה לחשבון אישי עם נתוני משתמש שמורים.</span>
+                  </div>
+                  <div class="account-link-arrow">‹</div>
+                </div>
+                <div class="account-link">
+                  <div class="account-link-icon">◔</div>
+                  <div class="account-link-copy">
+                    <strong>Profile</strong>
+                    <span>פרטי משתמש, היסטוריית פעילות וסטטוס חשבון במקום אחד.</span>
+                  </div>
+                  <div class="account-link-arrow">‹</div>
+                </div>
+                <div class="account-link">
+                  <div class="account-link-icon">♡</div>
+                  <div class="account-link-copy">
+                    <strong>Saved Lists</strong>
+                    <span>בהמשך אפשר לחבר רשימות, בקשות ושמירות של הלקוח.</span>
+                  </div>
+                  <div class="account-link-arrow">‹</div>
+                </div>
+              </div>
             </aside>
           </section>
         </main>

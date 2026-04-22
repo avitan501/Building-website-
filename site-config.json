@@ -1,8 +1,40 @@
 {
-  "title": "אתר בנייה",
-  "subtitle": "תת כותרת חדשה",
-  "bg": "#0b1020",
-  "text": "#e5e7eb",
+  "title": "כניסה לחשבון",
+  "subtitle": "התחברות מהירה כדי לראות מצב חשבון, הזמנות ופעילות",
+  "bg": "#f5f5f5",
+  "text": "#111111",
+  "brand": {
+    "name": "Build Your Account",
+    "accent": "#f96302",
+    "dark": "#111111",
+    "light": "#ffffff"
+  },
+  "entryPage": {
+    "eyebrow": "WELCOME",
+    "headline": "החשבון שלכם, מהיר וברור",
+    "subheadline": "התחברו עם Google או עם טלפון וסיסמה כדי לראות מצב חשבון, הזמנות ופעילות במקום אחד.",
+    "phoneLoginTitle": "כניסה עם טלפון",
+    "googleButtonLabel": "המשך עם Google",
+    "registerButtonLabel": "פתיחת חשבון חדש",
+    "tiles": [
+      {
+        "title": "סטטוס חשבון",
+        "content": "לקוחות יכולים לחזור תמיד ולבדוק מה מצב החשבון והפעילות שלהם."
+      },
+      {
+        "title": "כניסה מהירה",
+        "content": "טלפון וסיסמה פעילים עכשיו, ו-Google מוכן לחיבור OAuth בשלב הבא."
+      },
+      {
+        "title": "אווירת Home Depot",
+        "content": "כתום חזק, קונטרסט ברור וקוביות השראה בתחתית המסך."
+      },
+      {
+        "title": "פרופורציות נקיות",
+        "content": "טיפוגרפיה גדולה, הרבה אוויר ומבנה חד בהשראת Apple ו-Tesla."
+      }
+    ]
+  },
   "sections": [
     {
       "title": "About",

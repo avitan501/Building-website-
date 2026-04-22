@@ -9,9 +9,49 @@
     "payment_status": "unknown",
     "current_stage": "new",
     "next_step": "Ask the customer to clarify the issue or send a text version of the voice note",
-    "source": "whatsapp",
+    "last_customer_message": "[audio/ogg; codecs=opus]\n\nלא יודע מה הבעיה שלו לשלוח זיל, אבל מקסימום אני אמצא פתרון.",
+    "latest_source_path": "/root/.openclaw/media/inbound/9e51bcb9-84b5-463e-a59c-4c47dda6b671.ogg",
+    "activity_log": [
+      {
+        "timestamp": "2026-04-21T18:42:06.000Z",
+        "media_type": "audio/ogg; codecs=opus",
+        "source_path": "/root/.openclaw/media/inbound/9e51bcb9-84b5-463e-a59c-4c47dda6b671.ogg",
+        "body": "<media:audio>"
+      },
+      {
+        "timestamp": "2026-04-21T18:40:32.000Z",
+        "media_type": "",
+        "source_path": "",
+        "body": "חח"
+      },
+      {
+        "timestamp": "2026-04-21T18:40:31.000Z",
+        "media_type": "",
+        "source_path": "",
+        "body": "מאיפה הבאת הודעות כאלו"
+      },
+      {
+        "timestamp": "2026-04-21T18:39:20.000Z",
+        "media_type": "",
+        "source_path": "",
+        "body": "אין לו אפשרות לזל, לט יודע למה"
+      },
+      {
+        "timestamp": "2026-04-21T18:38:50.000Z",
+        "media_type": "",
+        "source_path": "",
+        "body": "חחח"
+      },
+      {
+        "timestamp": "2026-04-21T18:38:14.000Z",
+        "media_type": "",
+        "source_path": "",
+        "body": "קצת בעייתי"
+      }
+    ],
+    "source": "whatsapp-auto-sync",
     "created_at": "2026-04-21T18:44:18.539Z",
-    "updated_at": "2026-04-21T18:44:18.539Z",
+    "updated_at": "2026-04-21T19:23:08.535Z",
     "standing_summary": "Order ORDER-1001 for Aron Cohen is currently at stage \"new\". Payment status: unknown. Next step: Ask the customer to clarify the issue or send a text version of the voice note."
   }
 ]

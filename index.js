@@ -57,39 +57,39 @@ function writeJsonArray(filePath, value) {
 
 function readSiteConfig() {
   return readJson(siteConfigFile, {
-    title: 'כניסה לחשבון',
-    subtitle: 'התחברות מהירה כדי לראות את סטטוס החשבון וההזמנות',
+    title: 'Customer Portal',
+    subtitle: 'Fast access to orders, account updates, and activity in one place.',
     bg: '#f5f5f5',
     text: '#111111',
     brand: {
-      name: 'Build Your Account',
+      name: 'BuildCore Portal',
       accent: '#f96302',
       dark: '#111111',
       light: '#ffffff'
     },
     entryPage: {
       eyebrow: 'WELCOME',
-      headline: 'החשבון שלכם, מהיר וברור',
-      subheadline: 'התחברו עם Google או עם טלפון וסיסמה כדי לראות סטטוס חשבון, הזמנות ופעילות.',
-      phoneLoginTitle: 'כניסה עם טלפון',
-      googleButtonLabel: 'המשך עם Google',
-      registerButtonLabel: 'פתיחת חשבון חדש',
+      headline: 'Your account, clear and ready.',
+      subheadline: 'Sign in with Google or with your phone and password to check order progress, account activity, and next steps in one place.',
+      phoneLoginTitle: 'Sign in to your portal',
+      googleButtonLabel: 'Continue with Google',
+      registerButtonLabel: 'Create account',
       tiles: [
         {
-          title: 'סטטוס חשבון',
-          content: 'הלקוחות חוזרים ורואים את מצב החשבון שלהם בכל רגע.'
+          title: 'Order status',
+          content: 'Customers can come back anytime to check the latest account and order activity.'
         },
         {
-          title: 'כניסה מהירה',
-          content: 'טלפון וסיסמה היום, Google אחרי חיבור OAuth.'
+          title: 'Fast access',
+          content: 'Phone and password are live now, and Google is ready for OAuth in the next step.'
         },
         {
-          title: 'אווירה מסחרית',
-          content: 'צבעים חמים וקוביות השראה בסגנון Home Depot.'
+          title: 'Built for trust',
+          content: 'Strong contrast, clear calls to action, and a clean portal customers can actually use.'
         },
         {
-          title: 'פרופורציות נקיות',
-          content: 'טיפוגרפיה ומרווחים בהשראת Apple ו-Tesla.'
+          title: 'Simple layout',
+          content: 'Large type, strong spacing, and a direct path back to the customer account.'
         }
       ]
     },
@@ -196,9 +196,9 @@ function clearSessionForToken(token) {
 }
 
 function formatDisplayDate(value) {
-  if (!value) return 'עדיין אין נתון';
+  if (!value) return 'Not available yet';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'עדיין אין נתון';
+  if (Number.isNaN(date.getTime())) return 'Not available yet';
   return date.toISOString().slice(0, 16).replace('T', ' ');
 }
 
@@ -219,16 +219,16 @@ function renderEntryPage(cfg, flash = {}) {
       ? `<div class="flash flash-info">${escapeHtml(flash.info)}</div>`
       : '';
   const googleHelp = process.env.GOOGLE_CLIENT_ID
-    ? 'Google login מוכן לחיבור ברגע שנפעיל OAuth מלא.'
-    : 'Google login יוצג כבר עכשיו, ויהפוך לאמיתי אחרי חיבור Google OAuth.';
+    ? 'Google sign-in is ready to connect once full OAuth is enabled.'
+    : 'Google sign-in is already shown here and will go live once Google OAuth is connected.';
 
   return `
     <!DOCTYPE html>
-    <html lang="he" dir="rtl">
+    <html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${escapeHtml(cfg.title || 'כניסה לחשבון')}</title>
+        <title>${escapeHtml(cfg.title || 'Customer Portal')}</title>
         <style>
           :root {
             --accent: ${escapeHtml(theme.accent)};
@@ -590,7 +590,7 @@ function renderEntryPage(cfg, flash = {}) {
         </style>
       </head>
       <body>
-        <div class="top-strip">SPRING BUILD MODE, צבעים חמים, כניסה מהירה ומבנה נקי.</div>
+        <div class="top-strip">CUSTOMER PORTAL, fast access, clear status, and a clean return path.</div>
         <main class="page">
           <div class="brand-row">
             <div class="brand-lockup">
@@ -605,7 +605,7 @@ function renderEntryPage(cfg, flash = {}) {
           <section class="hero">
             <div class="hero-panel">
               <div class="eyebrow">${escapeHtml(entry.eyebrow || 'WELCOME')}</div>
-              <h1>${escapeHtml(entry.headline || 'כניסה מהירה לחשבון')}</h1>
+              <h1>${escapeHtml(entry.headline || 'Fast account access')}</h1>
               <div class="hero-copy">${escapeHtml(entry.subheadline || '')}</div>
 
               <div class="hero-badges">
@@ -625,97 +625,97 @@ function renderEntryPage(cfg, flash = {}) {
 
               <div class="mini-grid">
                 <div class="mini-card">
-                  <strong>גישה חוזרת</strong>
-                  <span>שמירה מאובטחת כדי שהלקוח יחזור לחשבון שלו.</span>
+                  <strong>Easy return</strong>
+                  <span>Secure access so customers can come back to their portal anytime.</span>
                 </div>
                 <div class="mini-card">
-                  <strong>פרופורציות</strong>
-                  <span>כותרות גדולות, הרבה אוויר ומוקד ברור לפעולה.</span>
+                  <strong>Clear layout</strong>
+                  <span>Large type, generous spacing, and a direct call to action.</span>
                 </div>
                 <div class="mini-card">
-                  <strong>שלב הבא</strong>
-                  <span>אחרי הכניסה, נחבר סטטוס הזמנות וחשבון אמיתי.</span>
+                  <strong>Next step</strong>
+                  <span>After login, this portal will show real order and account status.</span>
                 </div>
               </div>
             </div>
 
             <aside class="auth-card">
-              <h2>${escapeHtml(entry.phoneLoginTitle || 'כניסה לחשבון')}</h2>
-              <p>כניסה אחת ברורה עם שני מסלולים, Google או טלפון וסיסמה.</p>
+              <h2>${escapeHtml(entry.phoneLoginTitle || 'Sign in to your account')}</h2>
+              <p>One clear entry point with two options, Google or phone and password.</p>
               ${flashHtml}
 
               <form class="google-form" action="/api/auth/google" method="post">
-                <button class="google-button" type="submit">${escapeHtml(entry.googleButtonLabel || 'המשך עם Google')}</button>
+                <button class="google-button" type="submit">${escapeHtml(entry.googleButtonLabel || 'Continue with Google')}</button>
               </form>
               <div class="google-help">${escapeHtml(googleHelp)}</div>
 
-              <div class="divider">או</div>
+              <div class="divider">OR</div>
 
               <div class="auth-tabs">
-                <button type="button" class="tab-button is-active" data-tab="login">כניסה</button>
-                <button type="button" class="tab-button" data-tab="register">הרשמה</button>
+                <button type="button" class="tab-button is-active" data-tab="login">Sign in</button>
+                <button type="button" class="tab-button" data-tab="register">Register</button>
               </div>
 
               <form class="form-panel is-active" data-panel="login" action="/api/auth/login" method="post">
-                <label for="login-phone">טלפון</label>
-                <input id="login-phone" name="phone" type="tel" inputmode="tel" placeholder="0501234567" required />
+                <label for="login-phone">Phone</label>
+                <input id="login-phone" name="phone" type="tel" inputmode="tel" placeholder="(555) 123-4567" required />
 
-                <label for="login-password">סיסמה</label>
+                <label for="login-password">Password</label>
                 <input id="login-password" name="password" type="password" minlength="6" placeholder="••••••••" required />
 
                 <div style="height:14px"></div>
-                <button class="primary-button" type="submit">התחברות לחשבון</button>
+                <button class="primary-button" type="submit">Sign in to account</button>
               </form>
 
               <form class="form-panel" data-panel="register" action="/api/auth/register" method="post">
-                <label for="register-name">שם מלא</label>
-                <input id="register-name" name="fullName" type="text" placeholder="איך לקרוא לכם" />
+                <label for="register-name">Full name</label>
+                <input id="register-name" name="fullName" type="text" placeholder="How should we address you?" />
 
-                <label for="register-phone">טלפון</label>
-                <input id="register-phone" name="phone" type="tel" inputmode="tel" placeholder="0501234567" required />
+                <label for="register-phone">Phone</label>
+                <input id="register-phone" name="phone" type="tel" inputmode="tel" placeholder="(555) 123-4567" required />
 
-                <label for="register-password">סיסמה</label>
-                <input id="register-password" name="password" type="password" minlength="6" placeholder="לפחות 6 תווים" required />
+                <label for="register-password">Password</label>
+                <input id="register-password" name="password" type="password" minlength="6" placeholder="At least 6 characters" required />
 
                 <div style="height:14px"></div>
-                <button class="secondary-button" type="submit">${escapeHtml(entry.registerButtonLabel || 'פתיחת חשבון חדש')}</button>
+                <button class="secondary-button" type="submit">${escapeHtml(entry.registerButtonLabel || 'Create account')}</button>
               </form>
 
-              <div class="security-note">הסיסמה נשמרת בשרת בצורה מוצפנת. כדי להפעיל Google אמיתי, צריך לחבר Google OAuth.</div>
-              <div class="toggle-line">נבנה את האתר דף דף. הדף הזה הוא דף הכניסה והחזרה לחשבון.</div>
+              <div class="security-note">Passwords are stored securely on the server. Google sign-in will become fully live after Google OAuth is connected.</div>
+              <div class="toggle-line">This page is the first customer entry point, built for fast return access to the portal.</div>
 
               <div class="account-links">
                 <div class="account-link">
                   <div class="account-link-icon">◎</div>
                   <div class="account-link-copy">
                     <strong>Track Order</strong>
-                    <span>מכאן הלקוח יוכל לעקוב אחרי מצב הזמנה וחשבון.</span>
+                    <span>Customers will come here to follow order status and account updates.</span>
                   </div>
-                  <div class="account-link-arrow">‹</div>
+                  <div class="account-link-arrow">›</div>
                 </div>
                 <div class="account-link">
                   <div class="account-link-icon">▣</div>
                   <div class="account-link-copy">
                     <strong>Cards & Accounts</strong>
-                    <span>כניסה קבועה לחשבון אישי עם נתוני משתמש שמורים.</span>
+                    <span>Persistent access with saved customer details and account data.</span>
                   </div>
-                  <div class="account-link-arrow">‹</div>
+                  <div class="account-link-arrow">›</div>
                 </div>
                 <div class="account-link">
                   <div class="account-link-icon">◔</div>
                   <div class="account-link-copy">
                     <strong>Profile</strong>
-                    <span>פרטי משתמש, היסטוריית פעילות וסטטוס חשבון במקום אחד.</span>
+                    <span>User details, activity history, and account status in one place.</span>
                   </div>
-                  <div class="account-link-arrow">‹</div>
+                  <div class="account-link-arrow">›</div>
                 </div>
                 <div class="account-link">
                   <div class="account-link-icon">♡</div>
                   <div class="account-link-copy">
                     <strong>Saved Lists</strong>
-                    <span>בהמשך אפשר לחבר רשימות, בקשות ושמירות של הלקוח.</span>
+                    <span>Later we can connect saved lists, requests, and customer preferences.</span>
                   </div>
-                  <div class="account-link-arrow">‹</div>
+                  <div class="account-link-arrow">›</div>
                 </div>
               </div>
             </aside>
@@ -744,16 +744,16 @@ function renderAccountPage(cfg, user, flash = {}) {
     dark: cfg.brand?.dark || '#111111',
     light: cfg.brand?.light || '#ffffff'
   };
-  const displayName = user.full_name || user.phone || 'לקוח';
+  const displayName = user.full_name || user.phone || 'Customer';
   const flashHtml = flash.info ? `<div class="flash">${escapeHtml(flash.info)}</div>` : '';
 
   return `
     <!DOCTYPE html>
-    <html lang="he" dir="rtl">
+    <html lang="en">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>החשבון שלי</title>
+        <title>My Account</title>
         <style>
           :root {
             --accent: ${escapeHtml(theme.accent)};
@@ -889,38 +889,38 @@ function renderAccountPage(cfg, user, flash = {}) {
         </style>
       </head>
       <body>
-        <div class="top-strip">החשבון האישי שלכם, עם שמירה לחזרה מהירה.</div>
+        <div class="top-strip">YOUR PORTAL, saved access for fast return visits.</div>
         <main class="page">
           <div class="topbar">
             <div>
-              <div style="font-size:24px;font-weight:800;">${escapeHtml(cfg.brand?.name || 'Build Your Account')}</div>
-              <div style="color:#5f6368;">מצב חשבון, כניסה וחזרה לפעילות</div>
+              <div style="font-size:24px;font-weight:800;">${escapeHtml(cfg.brand?.name || 'BuildCore Portal')}</div>
+              <div style="color:#5f6368;">Account status, login, and customer activity</div>
             </div>
-            <a class="logout" href="/logout">התנתקות</a>
+            <a class="logout" href="/logout">Log out</a>
           </div>
 
           <section class="hero">
             <div class="eyebrow">ACCOUNT STATUS</div>
-            <h1>שלום ${escapeHtml(displayName)}</h1>
-            <div class="subcopy">מכאן הלקוח חוזר שוב ושוב כדי לראות מצב חשבון, הזמנות ופעילות. בשלב הבא נחבר לכאן סטטוס אמיתי מהמערכת.</div>
+            <h1>Hello ${escapeHtml(displayName)}</h1>
+            <div class="subcopy">This is where customers return to check account status, order activity, and the next step. The next phase is connecting live business data into this portal.</div>
             ${flashHtml}
           </section>
 
           <section class="stats">
             <article class="card accent-card">
               <div class="label">STATUS</div>
-              <div class="value">${escapeHtml(user.account_status || 'חשבון פעיל')}</div>
-              <p>זה המקום שבו נציג בעתיד סטטוס לקוח, הזמנות, תשלומים או בקשות.</p>
+              <div class="value">${escapeHtml(user.account_status || 'Active account')}</div>
+              <p>This is where customer status, orders, payments, and requests will appear.</p>
             </article>
             <article class="card">
               <div class="label">PHONE</div>
-              <div class="value">${escapeHtml(user.phone || 'לא זמין')}</div>
-              <p>המשתמש מזוהה לפי טלפון וסשן שמור לחזרה נוחה.</p>
+              <div class="value">${escapeHtml(user.phone || 'Not available')}</div>
+              <p>The customer is identified by phone and a saved session for easy return access.</p>
             </article>
             <article class="card">
               <div class="label">LAST LOGIN</div>
               <div class="value">${escapeHtml(formatDisplayDate(user.last_login_at))}</div>
-              <p>אפשר להמשיך מכאן לדף הזמנות, סטטוס עבודה או אזור אישי מלא.</p>
+              <p>From here the portal can grow into orders, job status, and a full customer area.</p>
             </article>
           </section>
 
@@ -928,17 +928,17 @@ function renderAccountPage(cfg, user, flash = {}) {
             <article class="card accent-card">
               <div class="label">JOINED</div>
               <div class="value">${escapeHtml(formatDisplayDate(user.created_at))}</div>
-              <p>החשבון נשמר לחזרה עתידית בלי לפתוח משתמש מחדש.</p>
+              <p>The account stays ready for future return visits without opening a new user.</p>
             </article>
             <article class="card">
               <div class="label">LOGIN METHOD</div>
               <div class="value">${escapeHtml((user.login_methods || ['phone']).join(' + '))}</div>
-              <p>כרגע פעיל טלפון וסיסמה. Google יופעל כשנחבר OAuth אמיתי.</p>
+              <p>Phone and password are live now. Google will go live once real OAuth is connected.</p>
             </article>
             <article class="card">
               <div class="label">NEXT STEP</div>
-              <div class="value">חיבור סטטוס אמיתי</div>
-              <p>בשלב הבא נחבר הזמנות, מצב חשבון, היסטוריית פעולות וקריאות שירות.</p>
+              <div class="value">Connect live status</div>
+              <p>The next phase is connecting orders, account updates, activity history, and service requests.</p>
             </article>
           </section>
         </main>
@@ -1172,18 +1172,18 @@ app.post('/api/auth/register', (req, res) => {
   const fullName = normalizeText(req.body?.fullName || '');
 
   if (phone.length < 8) {
-    res.redirect('/?error=' + encodeURIComponent('צריך להזין מספר טלפון תקין.'));
+    res.redirect('/?error=' + encodeURIComponent('Please enter a valid phone number.'));
     return;
   }
 
   if (password.length < 6) {
-    res.redirect('/?error=' + encodeURIComponent('הסיסמה חייבת להכיל לפחות 6 תווים.'));
+    res.redirect('/?error=' + encodeURIComponent('Password must be at least 6 characters.'));
     return;
   }
 
   const users = readSiteUsers();
   if (users.some(user => user.phone === phone)) {
-    res.redirect('/?error=' + encodeURIComponent('כבר קיים חשבון עם מספר הטלפון הזה.'));
+    res.redirect('/?error=' + encodeURIComponent('An account with this phone number already exists.'));
     return;
   }
 
@@ -1195,7 +1195,7 @@ app.post('/api/auth/register', (req, res) => {
     phone,
     password_salt: passwordRecord.salt,
     password_hash: passwordRecord.hash,
-    account_status: 'חשבון נוצר, ממתין לחיבור נתונים',
+    account_status: 'Account created, waiting for live data',
     login_methods: ['phone'],
     created_at: now,
     updated_at: now,
@@ -1206,7 +1206,7 @@ app.post('/api/auth/register', (req, res) => {
 
   const token = issueSessionForUser(users, 0);
   setSessionCookie(res, token);
-  res.redirect('/account?info=' + encodeURIComponent('החשבון נוצר בהצלחה.'));
+  res.redirect('/account?info=' + encodeURIComponent('Account created successfully.'));
 });
 
 app.post('/api/auth/login', (req, res) => {
@@ -1216,23 +1216,23 @@ app.post('/api/auth/login', (req, res) => {
   const index = users.findIndex(user => user.phone === phone);
 
   if (index === -1 || !verifyPassword(password, users[index])) {
-    res.redirect('/?error=' + encodeURIComponent('הטלפון או הסיסמה לא נכונים.'));
+    res.redirect('/?error=' + encodeURIComponent('The phone number or password is incorrect.'));
     return;
   }
 
   const token = issueSessionForUser(users, index);
   setSessionCookie(res, token);
-  res.redirect('/account?info=' + encodeURIComponent('חזרת בהצלחה לחשבון שלך.'));
+  res.redirect('/account?info=' + encodeURIComponent('You are back in your account.'));
 });
 
 app.post('/api/auth/google', (req, res) => {
-  res.redirect('/?info=' + encodeURIComponent('Google login מוכן בעיצוב, ויופעל סופית אחרי חיבור Google OAuth.'));
+  res.redirect('/?info=' + encodeURIComponent('Google sign-in is ready in the design and will go live after Google OAuth is connected.'));
 });
 
 app.get('/account', (req, res) => {
   const currentUser = readCurrentSiteUser(req);
   if (!currentUser) {
-    res.redirect('/?error=' + encodeURIComponent('צריך להתחבר כדי לראות את החשבון.'));
+    res.redirect('/?error=' + encodeURIComponent('Please sign in to view your account.'));
     return;
   }
 
@@ -1245,7 +1245,7 @@ app.get('/logout', (req, res) => {
   const token = readSessionToken(req);
   clearSessionForToken(token);
   clearSessionCookie(res);
-  res.redirect('/?info=' + encodeURIComponent('התנתקת בהצלחה.'));
+  res.redirect('/?info=' + encodeURIComponent('You have been logged out successfully.'));
 });
 
 app.get('/ops', (req, res) => {

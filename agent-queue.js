@@ -54,6 +54,10 @@ function defaultConfig() {
     routerModel: 'gpt-4.1-mini',
     workerProvider: 'openai',
     workerModel: 'gpt-4.1',
+    autoEnqueueNewTasks: true,
+    autoProcessEnabled: true,
+    defaultRunMode: 'now',
+    autoProcessBatchSize: 1,
     nightlyEnabled: true,
     nightlyStartHourUtc: 1,
     nightlyEndHourUtc: 6,
@@ -345,12 +349,13 @@ async function syncTaskIfNeeded(tasksFile, taskId, config) {
 }
 
 async function enqueueTask(tasksFile, text, overrides = {}) {
-  const runMode = String(overrides.queue_run_mode || overrides.queueRunMode || 'manual');
+  const config = readConfig();
+  const runMode = String(overrides.queue_run_mode || overrides.queueRunMode || config.defaultRunMode || 'now');
   const result = await createTaskFromText(tasksFile, text, {
     ...(overrides || {}),
     queue_enabled: true,
     queue_status: 'queued',
-    queue_run_mode: ['manual', 'now', 'night'].includes(runMode) ? runMode : 'manual',
+    queue_run_mode: ['manual', 'now', 'night'].includes(runMode) ? runMode : 'now',
     queue_run_after: overrides.queue_run_after || overrides.queueRunAfter || new Date().toISOString(),
     queue_result: '',
     queue_error: '',
@@ -358,6 +363,21 @@ async function enqueueTask(tasksFile, text, overrides = {}) {
     queue_plan: ''
   });
   return result;
+}
+
+async function createOrQueueTask(tasksFile, text, overrides = {}) {
+  const config = readConfig();
+  const wantsQueue = typeof overrides.autoQueue === 'boolean'
+    ? overrides.autoQueue
+    : typeof overrides.auto_queue === 'boolean'
+      ? overrides.auto_queue
+      : Boolean(config.autoEnqueueNewTasks);
+
+  if (wantsQueue) {
+    return enqueueTask(tasksFile, text, overrides);
+  }
+
+  return createTaskFromText(tasksFile, text, overrides);
 }
 
 async function processNextQueuedTask({ tasksFile, nightOnly = false } = {}) {
@@ -418,6 +438,26 @@ async function processNextQueuedTask({ tasksFile, nightOnly = false } = {}) {
   }
 }
 
+async function runAutoQueue({ tasksFile, limit } = {}) {
+  const config = readConfig();
+  if (!config.enabled) return { ok: false, error: 'agent queue disabled' };
+  if (!config.autoProcessEnabled) return { ok: false, error: 'auto processing disabled' };
+
+  const maxRuns = Math.max(1, Number(limit || config.autoProcessBatchSize || 1));
+  const runs = [];
+  for (let i = 0; i < maxRuns; i += 1) {
+    const result = await processNextQueuedTask({ tasksFile, nightOnly: false });
+    runs.push(result);
+    if (!result.processed) break;
+  }
+
+  return {
+    ok: true,
+    processed: runs.filter(run => run.processed).length,
+    runs
+  };
+}
+
 async function runNightQueue({ tasksFile, limit } = {}) {
   const config = readConfig();
   if (!config.enabled) return { ok: false, error: 'agent queue disabled' };
@@ -446,7 +486,9 @@ module.exports = {
   getQueueStatus,
   listQueueTasks,
   enqueueTask,
+  createOrQueueTask,
   processNextQueuedTask,
+  runAutoQueue,
   runNightQueue,
   isNightWindow
 };

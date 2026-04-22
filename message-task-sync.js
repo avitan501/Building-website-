@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { createTaskFromText } = require('./task-intelligence');
+const { createOrQueueTask } = require('./agent-queue');
 
 const LOG_DIR = '/tmp/openclaw';
 const TODAY_LOG = path.join(LOG_DIR, `openclaw-${new Date().toISOString().slice(0, 10)}.log`);
@@ -209,7 +209,7 @@ async function syncMessageTasks({ tasksFile, logFile = TODAY_LOG, backfill = fal
       continue;
     }
     try {
-      const result = await createTaskFromText(tasksFile, cleanBody, buildTaskOverrides(entry));
+      const result = await createOrQueueTask(tasksFile, cleanBody, buildTaskOverrides(entry));
       if (result.deduped) summary.deduped += 1;
       else summary.created += 1;
     } catch (error) {
@@ -236,7 +236,7 @@ async function syncMessageTasks({ tasksFile, logFile = TODAY_LOG, backfill = fal
         continue;
       }
       try {
-        const result = await createTaskFromText(tasksFile, entry.body, buildTaskOverrides(entry));
+        const result = await createOrQueueTask(tasksFile, entry.body, buildTaskOverrides(entry));
         if (result.deduped) summary.deduped += 1;
         else summary.created += 1;
       } catch (error) {

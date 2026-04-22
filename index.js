@@ -5,7 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { transcribeAudio, readDocument } = require('./order-intelligence');
 const { syncWhatsAppOrders } = require('./whatsapp-order-sync');
-const { readTasks, createTaskFromText, syncExistingTaskToMonday, getMondayBoard } = require('./task-intelligence');
+const { readTasks, syncExistingTaskToMonday, getMondayBoard } = require('./task-intelligence');
 const { syncMessageTasks } = require('./message-task-sync');
 const { getStatus: getKimiLaneStatus, readConfig: readKimiLaneConfig, writeConfig: writeKimiLaneConfig, askWebsiteCoder } = require('./kimi-coder');
 const {
@@ -14,7 +14,9 @@ const {
   getQueueStatus,
   listQueueTasks,
   enqueueTask,
+  createOrQueueTask,
   processNextQueuedTask,
+  runAutoQueue,
   runNightQueue
 } = require('./agent-queue');
 const app = express();
@@ -1214,6 +1216,12 @@ app.get('/ops', (req, res) => {
         </div>
 
         <div class="box">
+          <h2>🧠 Agent Queue</h2>
+          <p>Live queue view, routing, worker choice, and Monday mirror.</p>
+          <p><a href="/ops/queue">Open queue dashboard</a></p>
+        </div>
+
+        <div class="box">
           <h2>📄 Extra Pages</h2>
           ${pagesLinks}
         </div>
@@ -1249,8 +1257,101 @@ app.get('/tasks', (req, res) => {
     <html><body>
       <h1>Tasks</h1>
       <ul>${list || '<li>No tasks yet</li>'}</ul>
+      <p><a href="/ops/queue">Open queue dashboard</a></p>
       <p><a href="/ops">Back</a></p>
     </body></html>
+  `);
+});
+
+app.get('/ops/queue', (req, res) => {
+  const summary = getQueueStatus(tasksFile);
+  const queueTasks = listQueueTasks(tasksFile).slice(0, 50);
+  const counts = Object.entries(summary.counts || {})
+    .map(([key, value]) => `<span class="pill"><strong>${escapeHtml(key)}</strong> ${escapeHtml(value)}</span>`)
+    .join(' ');
+
+  const rows = queueTasks.map(task => `
+    <tr>
+      <td>${escapeHtml(task.id || '-')}</td>
+      <td>${escapeHtml(task.title || '')}</td>
+      <td>${escapeHtml(task.queue_status || '-')}</td>
+      <td>${escapeHtml(task.queue_run_mode || '-')}</td>
+      <td>${escapeHtml(task.queue_brain || '-')}</td>
+      <td>${escapeHtml(task.priority || '-')}</td>
+      <td>${escapeHtml(task.updated_at || '-')}</td>
+      <td>${task.monday_url ? `<a href="${escapeHtml(task.monday_url)}" target="_blank" rel="noreferrer">Monday</a>` : '-'}</td>
+    </tr>
+    <tr>
+      <td colspan="8" class="details">
+        ${task.queue_plan ? `<div><strong>Plan:</strong><pre>${escapeHtml(task.queue_plan)}</pre></div>` : ''}
+        ${task.queue_result ? `<div><strong>Result:</strong><pre>${escapeHtml(task.queue_result)}</pre></div>` : ''}
+        ${task.queue_error ? `<div><strong>Error:</strong><pre>${escapeHtml(task.queue_error)}</pre></div>` : ''}
+      </td>
+    </tr>
+  `).join('');
+
+  res.send(`
+    <html>
+      <head>
+        <title>Agent Queue</title>
+        <meta http-equiv="refresh" content="20" />
+        <style>
+          body { font-family: Inter, Arial, sans-serif; padding: 24px; background: #0b1020; color: #e5e7eb; }
+          a { color: #93c5fd; text-decoration: none; }
+          .top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin: 20px 0; }
+          .card { background: #11182d; border: 1px solid #24304d; border-radius: 12px; padding: 16px; }
+          .pill { display: inline-flex; gap: 8px; align-items: center; background: #17213a; border: 1px solid #2a3a5d; border-radius: 999px; padding: 6px 10px; margin: 4px 6px 0 0; }
+          table { width: 100%; border-collapse: collapse; background: #11182d; border-radius: 12px; overflow: hidden; }
+          th, td { border-bottom: 1px solid #24304d; padding: 12px; text-align: left; vertical-align: top; }
+          th { background: #17213a; }
+          .details { background: #0f172a; }
+          pre { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; font-family: ui-monospace, SFMono-Regular, monospace; }
+          .muted { color: #93a4c3; }
+        </style>
+      </head>
+      <body>
+        <div class="top">
+          <div>
+            <h1>🧠 Agent Queue</h1>
+            <p class="muted">Auto-refresh every 20 seconds. Local queue is the source of truth, Monday is the live mirror.</p>
+          </div>
+          <div>
+            <a href="/ops">Back to ops</a>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card"><strong>Total queue tasks</strong><div>${escapeHtml(summary.totals?.queueTasks || 0)}</div></div>
+          <div class="card"><strong>Total tasks</strong><div>${escapeHtml(summary.totals?.tasks || 0)}</div></div>
+          <div class="card"><strong>Queue enabled</strong><div>${escapeHtml(summary.enabled ? 'yes' : 'no')}</div></div>
+          <div class="card"><strong>Next up</strong><div>${escapeHtml(summary.nextUp?.id || 'none')}</div></div>
+        </div>
+
+        <div class="card" style="margin-bottom: 18px;">
+          <strong>Status buckets</strong>
+          <div>${counts || '<span class="muted">No queued tasks yet</span>'}</div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Status</th>
+              <th>Mode</th>
+              <th>Brain</th>
+              <th>Priority</th>
+              <th>Updated</th>
+              <th>Mirror</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="8">No queue tasks yet</td></tr>'}
+          </tbody>
+        </table>
+      </body>
+    </html>
   `);
 });
 
@@ -1311,7 +1412,10 @@ app.post('/api/tasks', async (req, res) => {
       return;
     }
 
-    const result = await createTaskFromText(tasksFile, text, req.body || {});
+    const result = await createOrQueueTask(tasksFile, text, req.body || {});
+    if (result?.task?.queue_enabled && result.task.queue_run_mode !== 'night') {
+      setTimeout(runBackgroundAutoQueue, 50);
+    }
     res.json(result);
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
@@ -1326,7 +1430,10 @@ app.post('/api/tasks/from-text', async (req, res) => {
       return;
     }
 
-    const result = await createTaskFromText(tasksFile, text, req.body || {});
+    const result = await createOrQueueTask(tasksFile, text, req.body || {});
+    if (result?.task?.queue_enabled && result.task.queue_run_mode !== 'night') {
+      setTimeout(runBackgroundAutoQueue, 50);
+    }
     res.json(result);
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
@@ -1374,6 +1481,10 @@ app.post('/api/agent-queue/config', (req, res) => {
     routerModel: typeof req.body?.routerModel === 'string' ? req.body.routerModel : undefined,
     workerProvider: typeof req.body?.workerProvider === 'string' ? req.body.workerProvider : undefined,
     workerModel: typeof req.body?.workerModel === 'string' ? req.body.workerModel : undefined,
+    autoEnqueueNewTasks: typeof req.body?.autoEnqueueNewTasks === 'boolean' ? req.body.autoEnqueueNewTasks : undefined,
+    autoProcessEnabled: typeof req.body?.autoProcessEnabled === 'boolean' ? req.body.autoProcessEnabled : undefined,
+    defaultRunMode: typeof req.body?.defaultRunMode === 'string' ? req.body.defaultRunMode : undefined,
+    autoProcessBatchSize: Number.isFinite(Number(req.body?.autoProcessBatchSize)) ? Number(req.body.autoProcessBatchSize) : undefined,
     nightlyEnabled: typeof req.body?.nightlyEnabled === 'boolean' ? req.body.nightlyEnabled : undefined,
     nightlyStartHourUtc: Number.isFinite(Number(req.body?.nightlyStartHourUtc)) ? Number(req.body.nightlyStartHourUtc) : undefined,
     nightlyEndHourUtc: Number.isFinite(Number(req.body?.nightlyEndHourUtc)) ? Number(req.body.nightlyEndHourUtc) : undefined,
@@ -1400,6 +1511,9 @@ app.post('/api/agent-queue/enqueue', async (req, res) => {
     }
 
     const result = await enqueueTask(tasksFile, text, req.body || {});
+    if (result?.task?.queue_enabled && result.task.queue_run_mode !== 'night') {
+      setTimeout(runBackgroundAutoQueue, 50);
+    }
     res.json(result);
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
@@ -1633,6 +1747,7 @@ Object.entries(cfg.pages || {}).forEach(([slug, page]) => {
 const port = Number(process.env.PORT || 3000);
 let backgroundOrderSyncRunning = false;
 let backgroundTaskSyncRunning = false;
+let backgroundAutoQueueRunning = false;
 let backgroundNightQueueRunning = false;
 
 async function runBackgroundOrderSync() {
@@ -1659,6 +1774,18 @@ async function runBackgroundTaskSync() {
   }
 }
 
+async function runBackgroundAutoQueue() {
+  if (backgroundAutoQueueRunning) return;
+  backgroundAutoQueueRunning = true;
+  try {
+    await runAutoQueue({ tasksFile });
+  } catch (error) {
+    console.error('Auto queue run failed:', error.message);
+  } finally {
+    backgroundAutoQueueRunning = false;
+  }
+}
+
 async function runBackgroundNightQueue() {
   if (backgroundNightQueueRunning) return;
   backgroundNightQueueRunning = true;
@@ -1675,8 +1802,10 @@ app.listen(port, () => {
   console.log(`Dashboard running on port ${port}`);
   setTimeout(runBackgroundOrderSync, 5000);
   setTimeout(runBackgroundTaskSync, 7000);
+  setTimeout(runBackgroundAutoQueue, 4000);
   setTimeout(runBackgroundNightQueue, 9000);
   setInterval(runBackgroundOrderSync, 45000);
   setInterval(runBackgroundTaskSync, 30000);
+  setInterval(runBackgroundAutoQueue, 15000);
   setInterval(runBackgroundNightQueue, 300000);
 });

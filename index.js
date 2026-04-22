@@ -1679,6 +1679,19 @@ app.get('/api/orders', (req, res) => {
   res.json(readOrders());
 });
 
+app.get('/downloads/:fileName', (req, res) => {
+  const safeName = path.basename(req.params.fileName || '');
+  const filePath = path.join('/root/.openclaw/workspace/out', safeName);
+  if (!safeName || !fs.existsSync(filePath)) {
+    res.status(404).send('file not found');
+    return;
+  }
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${safeName.replace(/"/g, '')}"`);
+  fs.createReadStream(filePath).pipe(res);
+});
+
 app.get('/api/tasks', (req, res) => {
   res.json(readTasks(tasksFile));
 });

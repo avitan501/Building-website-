@@ -364,6 +364,11 @@ function renderTaskHubPage() {
       .form-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
       .task-title { font-size: 22px; margin: 0; }
       .task-desc { color: #dbe4f0; white-space: pre-wrap; }
+      .expandable { margin-top: 8px; border: 1px solid var(--line); background: #0b1324; border-radius: 12px; overflow: hidden; }
+      .expandable summary { list-style: none; display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 12px; }
+      .expandable summary::-webkit-details-marker { display: none; }
+      .expandable .preview { color: #dbe4f0; white-space: pre-wrap; }
+      .expandable .expand-body { border-top: 1px solid var(--line); padding: 12px; color: #dbe4f0; white-space: pre-wrap; }
       .section-title { margin: 18px 0 10px; font-size: 16px; }
       .timeline { display: grid; gap: 8px; }
       .timeline-item { border: 1px solid var(--line); background: #0b1324; border-radius: 12px; padding: 10px; }
@@ -477,6 +482,18 @@ function renderTaskHubPage() {
         }).join('');
       }
 
+      function renderExpandableText(text, previewLength, label) {
+        const value = String(text || '').trim();
+        if (!value) return '';
+        if (value.length <= previewLength) {
+          return '<div class="task-desc">' + escapeHtml(value) + '</div>';
+        }
+        return '<details class="expandable">'
+          + '<summary><span class="preview">' + escapeHtml(value.slice(0, previewLength)) + '...</span><span class="tiny">' + escapeHtml(label || 'הצג יותר') + '</span></summary>'
+          + '<div class="expand-body">' + escapeHtml(value) + '</div>'
+          + '</details>';
+      }
+
       function renderActivities(activities) {
         if (!activities || !activities.length) return '<div class="tiny">אין עדיין היסטוריה</div>';
         return activities.map(function(activity) {
@@ -486,9 +503,9 @@ function renderTaskHubPage() {
           if (activity.next_step) bits.push('next: ' + activity.next_step);
           return '<div class="timeline-item">'
             + '<div class="tiny">' + escapeHtml(formatTime(activity.timestamp)) + (bits.length ? ' • ' + escapeHtml(bits.join(' | ')) : '') + '</div>'
-            + (activity.summary ? '<div>' + escapeHtml(activity.summary) + '</div>' : '')
-            + (activity.proposal ? '<div class="tiny">Proposal: ' + escapeHtml(activity.proposal) + '</div>' : '')
-            + (activity.outcome ? '<div class="tiny">Outcome: ' + escapeHtml(activity.outcome) + '</div>' : '')
+            + renderExpandableText(activity.summary, 150, 'הצג יותר')
+            + (activity.proposal ? renderExpandableText('Proposal: ' + activity.proposal, 140, 'הצעה מלאה') : '')
+            + (activity.outcome ? renderExpandableText('Outcome: ' + activity.outcome, 120, 'תוצאה מלאה') : '')
             + '</div>';
         }).join('');
       }
@@ -498,8 +515,8 @@ function renderTaskHubPage() {
           + '<div class="row spread"><strong>' + escapeHtml(contact.name || 'Unnamed contact') + '</strong>'
           + '<span class="pill ' + (['to-call', 'new'].includes(String(contact.status || '').toLowerCase()) ? 'warn' : 'good') + '">' + escapeHtml(contact.status || 'to-call') + '</span></div>'
           + '<div class="tiny">' + escapeHtml(contact.phone || 'No phone') + (contact.company ? ' • ' + escapeHtml(contact.company) : '') + (contact.role ? ' • ' + escapeHtml(contact.role) : '') + '</div>'
-          + '<div style="margin-top:8px;">' + (contact.progress_summary ? escapeHtml(contact.progress_summary) : '<span class="tiny">אין עדיין התקדמות מתועדת</span>') + '</div>'
-          + (contact.proposal_summary ? '<div class="tiny" style="margin-top:6px;">Proposal: ' + escapeHtml(contact.proposal_summary) + '</div>' : '')
+          + (contact.progress_summary ? renderExpandableText(contact.progress_summary, 140, 'התקדמות מלאה') : '<div style="margin-top:8px;"><span class="tiny">אין עדיין התקדמות מתועדת</span></div>')
+          + (contact.proposal_summary ? renderExpandableText('Proposal: ' + contact.proposal_summary, 120, 'הצעה מלאה') : '')
           + (contact.next_step ? '<div class="tiny" style="margin-top:6px;">Next: ' + escapeHtml(contact.next_step) + '</div>' : '')
           + '<div class="tiny" style="margin-top:6px;">Last contact: ' + escapeHtml(formatTime(contact.last_contact_at)) + '</div>'
           + '<details><summary>עדכון איש קשר</summary>'
@@ -563,7 +580,8 @@ function renderTaskHubPage() {
           + '<span class="pill ' + (task.stats && task.stats.pending ? 'warn' : 'good') + '">' + escapeHtml((task.stats && task.stats.contacts) || 0) + ' contacts</span>'
           + (task.monday_url ? '<a class="pill" href="' + escapeHtml(task.monday_url) + '" target="_blank" rel="noreferrer">Monday</a>' : '')
           + '</div></div>'
-          + (task.description ? '<p class="task-desc">' + escapeHtml(task.description) + '</p>' : '')
+          + (task.description ? renderExpandableText(task.description, 220, 'תיאור מלא') : '')
+          + (task.task_notes ? renderExpandableText('Notes: ' + task.task_notes, 160, 'הערות מלאות') : '')
           + '<div class="row">'
           + (task.next_step ? '<span class="pill warn">Next: ' + escapeHtml(task.next_step) + '</span>' : '')
           + '<span class="pill">Updated: ' + escapeHtml(formatTime(task.updated_at)) + '</span>'

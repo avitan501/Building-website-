@@ -1,5 +1,66 @@
 [
   {
+    "id": "TASK-1046",
+    "title": "The way you're getting tasks into the task apps is:",
+    "description": "The way you're getting tasks into the task apps is:\n1. I'm telling you, \"Add me a task for that,\" and then you added it to an existing tab task.\n2. Then there's another way: adding a task is by me just searching for something. For example I'm searching for which plan is the best for a phone number for a phone supplier and then you see the conversation. You take the subject of this conversation, put it as a task to finish, and in the description I see all the conversation I had.\n\nI want to be able to have a filter between conversations that I just spoke with Chachi, which are generally in this conversation, that I spoke regarding specifically to add a task or specifically you got it",
+    "source_text": "[Telegram telegram:-1003977559618 2026-04-22T17:50:52.774Z]\nThe way you're getting tasks into the task apps is:\n1. I'm telling you, \"Add me a task for that,\" and then you added it to an existing tab task.\n2. Then there's another way: adding a task is by me just searching for something. For example I'm searching for which plan is the best for a phone number for a phone supplier and then you see the conversation. You take the subject of this conversation, put it as a task to finish, and in the description I see all the conversation I had.\n\nI want to be able to have a filter between conversations that I just spoke with Chachi, which are generally in this conversation, that I spoke regarding specifically to add a task or specifically you got it",
+    "status": "open",
+    "priority": "normal",
+    "category": "supplier",
+    "due_date": "",
+    "source": "telegram",
+    "task_type": "task",
+    "customer_name": "",
+    "supplier_name": "",
+    "whatsapp_number": "",
+    "amount": "",
+    "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
+    "tags": [
+      "supplier"
+    ],
+    "source_chat_id": "telegram:-1003977559618",
+    "source_contact": "",
+    "conversation_history": [
+      {
+        "timestamp": "2026-04-22T17:50:52.774Z",
+        "source": "telegram",
+        "chat_id": "telegram:-1003977559618",
+        "contact": "",
+        "body": "The way you're getting tasks into the task apps is:\n1. I'm telling you, \"Add me a task for that,\" and then you added it to an existing tab task.\n2. Then there's another way: adding a task is by me just searching for something. For example I'm searching for which plan is the best for a phone number for a phone supplier and then you see the conversation. You take the subject of this conversation, put it as a task to finish, and in the description I see all the conversation I had.\n\nI want to be able to have a filter between conversations that I just spoke with Chachi, which are generally in this conversation, that I spoke regarding specifically to add a task or specifically you got it"
+      }
+    ],
+    "last_message_at": "2026-04-22T17:50:52.774Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
+    "related_keys": [
+      "supplier",
+      "chat:telegram:-1003977559618",
+      "type:task",
+      "category:supplier"
+    ],
+    "monday_item_id": "11820353566",
+    "monday_board_id": "18409684112",
+    "monday_group_id": "topics",
+    "monday_board_name": "New Board",
+    "monday_url": "https://fivetownsbuilders-team.monday.com/boards/18409684112",
+    "queue_enabled": true,
+    "queue_status": "done",
+    "queue_run_mode": "now",
+    "queue_run_after": "2026-04-22T17:51:22.335Z",
+    "queue_locked_at": "2026-04-22T17:51:22.384Z",
+    "queue_last_run_at": "2026-04-22T17:51:34.637Z",
+    "queue_brain": "general-smart",
+    "queue_router_model": "gpt-4.1-mini",
+    "queue_worker_model": "gpt-4.1",
+    "queue_plan": "Create a system to filter conversations where tasks were explicitly added versus general conversations, and automatically generate tasks from conversation subjects with full conversation descriptions.\n\nImplement filtering and task creation from conversations.\n\n1. Design a tagging or flagging system to mark conversations where tasks were explicitly added by user commands.\n2. Implement a filter to separate these tagged conversations from general chats.\n3. Develop a function to extract the subject of a conversation when user searches for information, and automatically create a task with that subject as the title and the entire conversation as the description.\n4. Integrate this system into the existing task app interface, allowing users to view and manage tasks created from conversations.\n5. Ensure the filter can toggle between showing tasks from explicit commands and those generated from search conversations.",
+    "queue_result": "1. Outcome  \nIdentified two methods for task creation from conversations: (a) explicit user request (\"Add me a task for that\"), and (b) implicit task extraction from relevant conversation topics (e.g., searching for supplier plans). Need to implement a filter to distinguish between general conversations and those intended for task creation.\n\n2. Recommended actions  \n- Implement keyword/intent detection to identify explicit task requests in conversations.  \n- Develop a conversation parser to extract actionable topics for implicit task creation.  \n- Add a filter/tagging system to separate conversations related to task creation from general chat.  \n- Store the full conversation as the task description when tasks are created implicitly.\n\n3. Risks or blockers  \n- Ambiguity in user intent may lead to false positives/negatives in task creation.  \n- Complex conversations may be difficult to parse accurately for actionable items.  \n- Overloading the task list with irrelevant tasks if filters are not precise.\n\n4. Suggested next step  \nDefine and implement intent detection rules/keywords for explicit and implicit task creation. Prototype the filter/tagging mechanism and test on sample conversations to refine accuracy.",
+    "queue_error": "",
+    "created_at": "2026-04-22T17:51:22.337Z",
+    "updated_at": "2026-04-22T17:51:36.745Z"
+  },
+  {
     "id": "TASK-1045",
     "title": "‏אז אני רוצה שיהיה לי מקום ששמענו על כל המשימות שלי ובכל משימה יהיה לי מתחתיו אנשים שאני יכול להתקשר אליהם בשביל לקדם את",
     "description": "‏אז אני רוצה שיהיה לי מקום ששמענו על כל המשימות שלי ובכל משימה יהיה לי מתחתיו אנשים שאני יכול להתקשר אליהם בשביל לקדם את המשימה הזאתי ועם כל בנאדם שאני מתקשר אליו יהיה יכול לפתוח אותו ולראות איך התקדמתי איתו מה הוא מציע לי אז תראה איפה הכי חכם לבנות את זה בבקשה תבנה לי את זה בצורה מלאה שאני כבר יכול להתחיל לעבוד עם זה מעכשיו ופשוט להתחיל לשלוח לך שמות של משימות ושמות של אנשים שאני עובד איתם וככה להתחיל לעבוד ולהתקדם עם זה אינשאללה",

@@ -328,19 +328,19 @@ function renderTaskHubPage() {
     <title>Task Hub</title>
     <style>
       :root {
-        --bg: #0f172a;
-        --panel: #111827;
-        --panel-2: #172033;
-        --line: #25324b;
-        --text: #e5e7eb;
-        --muted: #94a3b8;
-        --accent: #38bdf8;
-        --good: #34d399;
-        --warn: #f59e0b;
+        --bg: #f8fbff;
+        --panel: #ffffff;
+        --panel-2: #f3f7fb;
+        --line: #d9e3ef;
+        --text: #0f172a;
+        --muted: #5b6b80;
+        --accent: #0ea5e9;
+        --good: #059669;
+        --warn: #d97706;
       }
       * { box-sizing: border-box; }
-      body { margin: 0; font-family: Inter, Arial, sans-serif; background: linear-gradient(180deg, #0b1222, #0f172a 28%); color: var(--text); }
-      a { color: #93c5fd; text-decoration: none; }
+      body { margin: 0; font-family: Inter, Arial, sans-serif; background: linear-gradient(180deg, #f8fbff, #eef6ff 35%, #f8fbff 100%); color: var(--text); }
+      a { color: #2563eb; text-decoration: none; }
       .shell { max-width: 1320px; margin: 0 auto; padding: 24px; }
       .top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px; }
       .title { margin: 0; font-size: 32px; }
@@ -348,46 +348,46 @@ function renderTaskHubPage() {
       .stats, .task-grid, .contact-grid, .focus-grid { display: grid; gap: 14px; }
       .stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin: 18px 0; }
       .focus-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 0 0 18px; }
-      .focus-card { background: rgba(17, 24, 39, 0.95); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 16px; padding: 14px; }
+      .focus-card { background: #ffffff; border: 1px solid rgba(14, 165, 233, 0.28); border-radius: 16px; padding: 14px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05); }
       .task-grid { grid-template-columns: 1fr; }
       .contact-grid { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-      .card, .task-card, .contact-card { background: rgba(17, 24, 39, 0.95); border: 1px solid var(--line); border-radius: 16px; }
+      .card, .task-card, .contact-card { background: #ffffff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05); }
       .card { padding: 16px; }
       .task-card { padding: 18px; }
       .contact-card { padding: 14px; margin-top: 12px; }
       .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
       .row.spread { justify-content: space-between; }
-      .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid var(--line); background: #132038; color: var(--text); padding: 6px 10px; font-size: 12px; }
-      .pill.good { border-color: rgba(52, 211, 153, 0.35); color: #bbf7d0; }
-      .pill.warn { border-color: rgba(245, 158, 11, 0.35); color: #fde68a; }
+      .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; border: 1px solid var(--line); background: #f3f7ff; color: var(--text); padding: 6px 10px; font-size: 12px; }
+      .pill.good { border-color: rgba(5, 150, 105, 0.25); color: #047857; background: #ecfdf5; }
+      .pill.warn { border-color: rgba(217, 119, 6, 0.25); color: #b45309; background: #fff7ed; }
       form { margin: 0; }
       input, textarea, select, button {
-        width: 100%; border-radius: 12px; border: 1px solid var(--line); background: #0b1324; color: var(--text);
+        width: 100%; border-radius: 12px; border: 1px solid var(--line); background: #ffffff; color: var(--text);
         padding: 11px 12px; font: inherit;
       }
       textarea { min-height: 90px; resize: vertical; }
-      button { width: auto; cursor: pointer; background: linear-gradient(180deg, #1d4ed8, #1e40af); border: none; font-weight: 600; }
-      button.secondary { background: #1b2334; border: 1px solid var(--line); }
+      button { width: auto; cursor: pointer; background: linear-gradient(180deg, #3b82f6, #2563eb); border: none; color: #ffffff; font-weight: 600; }
+      button.secondary { background: #f8fbff; border: 1px solid var(--line); color: var(--text); }
       .form-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
       .task-title { font-size: 22px; margin: 0; }
-      .task-desc { color: #dbe4f0; white-space: pre-wrap; }
-      .expandable { margin-top: 8px; border: 1px solid var(--line); background: #0b1324; border-radius: 12px; overflow: hidden; }
+      .task-desc { color: #334155; white-space: pre-wrap; }
+      .expandable { margin-top: 8px; border: 1px solid var(--line); background: #ffffff; border-radius: 12px; overflow: hidden; }
       .expandable summary { list-style: none; display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 12px; }
       .expandable summary::-webkit-details-marker { display: none; }
-      .expandable .preview { color: #dbe4f0; white-space: pre-wrap; }
-      .expandable .expand-body { border-top: 1px solid var(--line); padding: 12px; color: #dbe4f0; white-space: pre-wrap; }
+      .expandable .preview { color: #334155; white-space: pre-wrap; }
+      .expandable .expand-body { border-top: 1px solid var(--line); padding: 12px; color: #334155; white-space: pre-wrap; }
       .section-title { margin: 18px 0 10px; font-size: 16px; }
       .timeline { display: grid; gap: 8px; }
-      .timeline-item { border: 1px solid var(--line); background: #0b1324; border-radius: 12px; padding: 10px; }
-      .empty { border: 1px dashed var(--line); border-radius: 16px; padding: 24px; text-align: center; color: var(--muted); }
+      .timeline-item { border: 1px solid var(--line); background: #ffffff; border-radius: 12px; padding: 10px; }
+      .empty { border: 1px dashed var(--line); border-radius: 16px; padding: 24px; text-align: center; color: var(--muted); background: #ffffff; }
       .tiny { font-size: 12px; color: var(--muted); }
       .search { max-width: 340px; }
-      .notice { margin: 10px 0 0; color: #bfdbfe; }
+      .notice { margin: 10px 0 0; color: #1d4ed8; }
       .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
       .toggle-pill { display: inline-flex; align-items: center; gap: 8px; }
       .toggle-pill input { width: auto; }
       details { margin-top: 10px; }
-      summary { cursor: pointer; color: #bfdbfe; }
+      summary { cursor: pointer; color: #2563eb; }
       body.compact-mode .card,
       body.compact-mode .task-card,
       body.compact-mode .contact-card { border-radius: 12px; }
@@ -453,7 +453,7 @@ function renderTaskHubPage() {
         <div class="form-grid" style="margin-top:14px;">
           <select id="statusFilter">
             <option value="all">כל הסטטוסים</option>
-            <option value="active">רק פעילות</option>
+            <option value="active" selected>רק פעילות</option>
             <option value="open">open</option>
             <option value="follow-up">follow-up</option>
             <option value="waiting">waiting</option>
@@ -484,7 +484,7 @@ function renderTaskHubPage() {
     </div>
 
     <script>
-      const state = { tasks: [], filter: '', compactMode: true, filters: { status: 'all', priority: 'all', contacts: 'all' } };
+      const state = { tasks: [], filter: '', compactMode: true, filters: { status: 'active', priority: 'all', contacts: 'all' } };
 
       function escapeHtml(value) {
         return String(value == null ? '' : value)

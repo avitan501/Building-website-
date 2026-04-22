@@ -744,8 +744,52 @@ function renderAccountPage(cfg, user, flash = {}) {
     dark: cfg.brand?.dark || '#111111',
     light: cfg.brand?.light || '#ffffff'
   };
-  const displayName = user.full_name || user.phone || 'Customer';
+  const displayName = user.full_name || user.phone || 'Builder';
   const flashHtml = flash.info ? `<div class="flash">${escapeHtml(flash.info)}</div>` : '';
+  const steps = [
+    {
+      title: 'Request received',
+      content: 'You send a material list, a WhatsApp message, or a blueprint.'
+    },
+    {
+      title: 'Price check',
+      content: 'We compare suppliers and find the best place to buy.'
+    },
+    {
+      title: 'Best option selected',
+      content: 'You review the best buying direction for the job.'
+    },
+    {
+      title: 'Shipping coordinated',
+      content: 'We manage delivery timing and shipping follow-up.'
+    },
+    {
+      title: 'Delivered to site',
+      content: 'Materials arrive and the builder stays focused on the work.'
+    }
+  ];
+  const actions = [
+    {
+      title: 'Request pricing',
+      content: 'Send what you need and let us compare prices across suppliers.'
+    },
+    {
+      title: 'Start material order',
+      content: 'Open a new material request and keep every step in one place.'
+    },
+    {
+      title: 'Upload blueprint',
+      content: 'Share a plan so we can help identify needed materials.'
+    },
+    {
+      title: 'WhatsApp order',
+      content: 'Kick off an order directly from WhatsApp without leaving the job.'
+    },
+    {
+      title: 'Track shipping',
+      content: 'See whether sourcing, booking, or delivery is in progress.'
+    }
+  ];
 
   return `
     <!DOCTYPE html>
@@ -753,7 +797,7 @@ function renderAccountPage(cfg, user, flash = {}) {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>My Account</title>
+        <title>Builder Dashboard</title>
         <style>
           :root {
             --accent: ${escapeHtml(theme.accent)};
@@ -764,50 +808,67 @@ function renderAccountPage(cfg, user, flash = {}) {
           body {
             margin: 0;
             font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: linear-gradient(180deg, #fff8f2 0%, #f7f7f7 100%);
+            background: #f7f7f7;
             color: #111111;
           }
           .top-strip {
-            background: var(--accent);
+            background: var(--dark);
             color: white;
             text-align: center;
             padding: 12px 18px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
+            letter-spacing: 0.08em;
           }
           .page {
-            max-width: 1180px;
+            max-width: 1220px;
             margin: 0 auto;
-            padding: 28px 20px 40px;
+            padding: 28px 20px 44px;
           }
           .topbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 14px;
-            margin-bottom: 20px;
+            gap: 16px;
+            margin-bottom: 18px;
+          }
+          .brand-title {
+            font-size: 24px;
+            font-weight: 800;
+          }
+          .brand-sub {
+            color: #5f6368;
+            margin-top: 4px;
           }
           .logout {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: #111111;
-            color: white;
+            background: white;
+            color: var(--dark);
             text-decoration: none;
             border-radius: 14px;
             padding: 12px 16px;
             font-weight: 800;
+            border: 1px solid rgba(17,17,17,0.1);
+          }
+          .hero,
+          .panel,
+          .stat,
+          .action,
+          .step {
+            background: white;
+            border: 1px solid rgba(17,17,17,0.08);
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(17,17,17,0.06);
           }
           .hero {
-            background: white;
-            border-radius: 30px;
             padding: 30px;
-            box-shadow: 0 20px 50px rgba(17,17,17,0.08);
-            border: 1px solid rgba(17,17,17,0.08);
             margin-bottom: 18px;
           }
           .eyebrow {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             padding: 8px 12px;
             border-radius: 999px;
             background: rgba(249,99,2,0.12);
@@ -818,16 +879,17 @@ function renderAccountPage(cfg, user, flash = {}) {
             margin-bottom: 16px;
           }
           h1 {
-            margin: 0 0 10px;
-            font-size: clamp(38px, 6vw, 66px);
-            line-height: 0.95;
+            margin: 0 0 12px;
+            font-size: clamp(38px, 6vw, 68px);
+            line-height: 0.94;
             letter-spacing: -0.05em;
+            max-width: 10ch;
           }
           .subcopy {
-            color: #52525b;
+            max-width: 58ch;
+            color: #4b5563;
             font-size: 18px;
             line-height: 1.7;
-            max-width: 52ch;
           }
           .flash {
             margin-top: 18px;
@@ -837,109 +899,257 @@ function renderAccountPage(cfg, user, flash = {}) {
             color: #175cd3;
             font-weight: 700;
           }
-          .stats,
-          .tiles {
+          .stats {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 16px;
+            margin-bottom: 18px;
           }
-          .stats { margin-bottom: 18px; }
-          .card {
-            background: white;
-            border-radius: 24px;
+          .stat {
             padding: 22px;
-            border: 1px solid rgba(17,17,17,0.08);
-            box-shadow: 0 18px 45px rgba(17,17,17,0.06);
           }
-          .card .label {
+          .label {
             font-size: 12px;
             letter-spacing: 0.1em;
             font-weight: 800;
             color: #5f6368;
             margin-bottom: 10px;
           }
-          .card .value {
-            font-size: 26px;
+          .value {
+            font-size: 28px;
             font-weight: 800;
-            line-height: 1.15;
+            line-height: 1.1;
           }
-          .card p {
-            margin: 10px 0 0;
+          .muted {
+            margin-top: 10px;
             color: #52525b;
             line-height: 1.6;
           }
-          .accent-card {
-            position: relative;
-            overflow: hidden;
+          .content-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+            gap: 16px;
+            margin-bottom: 18px;
           }
-          .accent-card::before {
-            content: "";
-            position: absolute;
-            inset-inline-start: 0;
-            top: 0;
-            width: 8px;
-            height: 100%;
-            background: linear-gradient(180deg, var(--accent), #ffbb80);
+          .panel {
+            padding: 24px;
           }
-          @media (max-width: 860px) {
+          .panel h2 {
+            margin: 0 0 10px;
+            font-size: 28px;
+            letter-spacing: -0.03em;
+          }
+          .panel-intro {
+            color: #52525b;
+            line-height: 1.6;
+            margin-bottom: 18px;
+          }
+          .stack {
+            display: grid;
+            gap: 14px;
+          }
+          .row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+          }
+          .mini {
+            padding: 16px;
+            border-radius: 18px;
+            background: #f8f8f8;
+            border: 1px solid rgba(17,17,17,0.06);
+          }
+          .mini strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #5f6368;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+          }
+          .mini span {
+            display: block;
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.35;
+          }
+          .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+          }
+          .action {
+            padding: 18px;
+          }
+          .action strong {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 8px;
+          }
+          .action p,
+          .step p {
+            margin: 0;
+            color: #52525b;
+            line-height: 1.6;
+          }
+          .section-title {
+            margin: 0 0 14px;
+            font-size: 28px;
+            letter-spacing: -0.03em;
+          }
+          .orders-panel {
+            margin-bottom: 18px;
+          }
+          .empty-state {
+            padding: 22px;
+            border-radius: 20px;
+            background: #f8f8f8;
+            border: 1px dashed rgba(17,17,17,0.15);
+          }
+          .empty-state strong {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 8px;
+          }
+          .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 12px;
+          }
+          .step {
+            padding: 18px;
+          }
+          .step-index {
+            width: 34px;
+            height: 34px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background: rgba(249,99,2,0.12);
+            color: var(--accent);
+            font-weight: 800;
+            margin-bottom: 12px;
+          }
+          .step strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 17px;
+          }
+          @media (max-width: 980px) {
             .stats,
-            .tiles { grid-template-columns: 1fr; }
-            .topbar { flex-direction: column; align-items: stretch; }
+            .row,
+            .content-grid,
+            .steps-grid {
+              grid-template-columns: 1fr;
+            }
+            .actions-grid {
+              grid-template-columns: 1fr;
+            }
+          }
+          @media (max-width: 700px) {
+            .topbar {
+              flex-direction: column;
+              align-items: stretch;
+            }
           }
         </style>
       </head>
       <body>
-        <div class="top-strip">YOUR PORTAL, saved access for fast return visits.</div>
+        <div class="top-strip">BUILDER DASHBOARD</div>
         <main class="page">
           <div class="topbar">
             <div>
-              <div style="font-size:24px;font-weight:800;">${escapeHtml(cfg.brand?.name || 'BuildCore Portal')}</div>
-              <div style="color:#5f6368;">Account status, login, and customer activity</div>
+              <div class="brand-title">${escapeHtml(cfg.brand?.name || 'BuildCore Supply')}</div>
+              <div class="brand-sub">Projects, material orders, pricing help, and shipping coordination.</div>
             </div>
             <a class="logout" href="/logout">Log out</a>
           </div>
 
           <section class="hero">
-            <div class="eyebrow">ACCOUNT STATUS</div>
+            <div class="eyebrow">BUILDER HOME</div>
             <h1>Hello ${escapeHtml(displayName)}</h1>
-            <div class="subcopy">This is where customers return to check account status, order activity, and the next step. The next phase is connecting live business data into this portal.</div>
+            <div class="subcopy">This is the page a builder uses after login. It keeps the project, the material order flow, and the current step of every request in one simple place.</div>
             ${flashHtml}
           </section>
 
           <section class="stats">
-            <article class="card accent-card">
-              <div class="label">STATUS</div>
+            <article class="stat">
+              <div class="label">ACCOUNT STATUS</div>
               <div class="value">${escapeHtml(user.account_status || 'Active account')}</div>
-              <p>This is where customer status, orders, payments, and requests will appear.</p>
+              <div class="muted">Your account is ready for pricing requests, material orders, and delivery follow-up.</div>
             </article>
-            <article class="card">
+            <article class="stat">
               <div class="label">PHONE</div>
               <div class="value">${escapeHtml(user.phone || 'Not available')}</div>
-              <p>The customer is identified by phone and a saved session for easy return access.</p>
+              <div class="muted">This phone number stays tied to your account and WhatsApp activity.</div>
             </article>
-            <article class="card">
+            <article class="stat">
               <div class="label">LAST LOGIN</div>
               <div class="value">${escapeHtml(formatDisplayDate(user.last_login_at))}</div>
-              <p>From here the portal can grow into orders, job status, and a full customer area.</p>
+              <div class="muted">Come back here to see what is in pricing, in shipping, or already delivered.</div>
             </article>
           </section>
 
-          <section class="tiles">
-            <article class="card accent-card">
-              <div class="label">JOINED</div>
-              <div class="value">${escapeHtml(formatDisplayDate(user.created_at))}</div>
-              <p>The account stays ready for future return visits without opening a new user.</p>
+          <section class="content-grid">
+            <article class="panel">
+              <h2>Project workspace</h2>
+              <div class="panel-intro">The builder should always know what project is active, what materials are being handled, and what the next move is.</div>
+              <div class="stack">
+                <div class="row">
+                  <div class="mini">
+                    <strong>Current project</strong>
+                    <span>Project view starts here</span>
+                  </div>
+                  <div class="mini">
+                    <strong>Material orders</strong>
+                    <span>Track every request in one flow</span>
+                  </div>
+                  <div class="mini">
+                    <strong>Next move</strong>
+                    <span>See what needs your approval right away</span>
+                  </div>
+                </div>
+                <div class="empty-state">
+                  <strong>No project is shown on this minimal version yet.</strong>
+                  <div class="muted">This area is reserved for the builder's active project, job site details, and the material requests linked to that project.</div>
+                </div>
+              </div>
             </article>
-            <article class="card">
-              <div class="label">LOGIN METHOD</div>
-              <div class="value">${escapeHtml((user.login_methods || ['phone']).join(' + '))}</div>
-              <p>Phone and password are live now. Google will go live once real OAuth is connected.</p>
+
+            <article class="panel">
+              <h2>Quick actions</h2>
+              <div class="panel-intro">These are the main things the builder comes here to do.</div>
+              <div class="actions-grid">
+                ${actions.map(action => `
+                  <article class="action">
+                    <strong>${escapeHtml(action.title)}</strong>
+                    <p>${escapeHtml(action.content)}</p>
+                  </article>
+                `).join('')}
+              </div>
             </article>
-            <article class="card">
-              <div class="label">NEXT STEP</div>
-              <div class="value">Connect live status</div>
-              <p>The next phase is connecting orders, account updates, activity history, and service requests.</p>
-            </article>
+          </section>
+
+          <section class="panel orders-panel">
+            <h2 class="section-title">Material orders</h2>
+            <div class="panel-intro">Every order should stay simple for the builder: what was requested, what pricing was found, what was approved, and where delivery stands now.</div>
+            <div class="empty-state">
+              <strong>No active material order is shown on this minimal version yet.</strong>
+              <div class="muted">When an order is active, this section should show the project, requested materials, best supplier option, shipping status, and the next required step.</div>
+            </div>
+          </section>
+
+          <section>
+            <h2 class="section-title">Order step tracker</h2>
+            <div class="steps-grid">
+              ${steps.map((step, index) => `
+                <article class="step">
+                  <div class="step-index">${index + 1}</div>
+                  <strong>${escapeHtml(step.title)}</strong>
+                  <p>${escapeHtml(step.content)}</p>
+                </article>
+              `).join('')}
+            </div>
           </section>
         </main>
       </body>

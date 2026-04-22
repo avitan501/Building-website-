@@ -4,7 +4,7 @@
   "bg": "#f5f5f5",
   "text": "#111111",
   "brand": {
-    "name": "BuildCore Portal",
+    "name": "BuildCore Supply",
     "accent": "#f96302",
     "dark": "#111111",
     "light": "#ffffff"
@@ -35,21 +35,6 @@
       }
     ]
   },
-  "sections": [
-    {
-      "title": "About",
-      "content": "Customer access, updates, and account visibility in one place.",
-      "slug": "about"
-    }
-  ],
-  "pages": {
-    "about": {
-      "title": "About Us",
-      "content": "This portal gives customers one place to log in, review account details, and follow order activity."
-    },
-    "services": {
-      "title": "Services",
-      "content": "Order tracking, account access, and customer support updates."
-    }
-  }
+  "sections": [],
+  "pages": {}
 }

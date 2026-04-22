@@ -1,5 +1,7 @@
 node_modules/
 .run/
+.env
+.env.*
 data/order_sync_state.json
 data/message_task_sync_state.json
 data/test-artifacts/

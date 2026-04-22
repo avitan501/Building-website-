@@ -1,0 +1,9 @@
+{
+  "enabled": true,
+  "provider": "kimi",
+  "model": "moonshot-v1-8k",
+  "baseUrl": "https://api.moonshot.ai/v1",
+  "defaultMode": "recommendations",
+  "defaultLanguage": "en",
+  "defaultStack": "html-css-js"
+}

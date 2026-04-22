@@ -4,6 +4,7 @@ const { transcribeAudio, readDocument } = require('./order-intelligence');
 const { syncWhatsAppOrders } = require('./whatsapp-order-sync');
 const { readTasks, createTaskFromText, syncExistingTaskToMonday, getMondayBoard } = require('./task-intelligence');
 const { syncMessageTasks } = require('./message-task-sync');
+const { getStatus: getKimiLaneStatus, readConfig: readKimiLaneConfig, writeConfig: writeKimiLaneConfig, askWebsiteCoder } = require('./kimi-coder');
 const app = express();
 
 app.use(express.json({ limit: '1mb' }));
@@ -465,6 +466,48 @@ app.post('/api/tasks/sync-messages', async (req, res) => {
     res.json(result);
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get('/api/website-coder/status', (req, res) => {
+  res.json(getKimiLaneStatus());
+});
+
+app.get('/api/website-coder/config', (req, res) => {
+  res.json({ ok: true, config: readKimiLaneConfig() });
+});
+
+app.post('/api/website-coder/config', (req, res) => {
+  const next = writeKimiLaneConfig({
+    enabled: typeof req.body?.enabled === 'boolean' ? req.body.enabled : undefined,
+    provider: typeof req.body?.provider === 'string' ? req.body.provider : undefined,
+    model: typeof req.body?.model === 'string' ? req.body.model : undefined,
+    baseUrl: typeof req.body?.baseUrl === 'string' ? req.body.baseUrl : undefined,
+    defaultMode: typeof req.body?.defaultMode === 'string' ? req.body.defaultMode : undefined,
+    defaultLanguage: typeof req.body?.defaultLanguage === 'string' ? req.body.defaultLanguage : undefined,
+    defaultStack: typeof req.body?.defaultStack === 'string' ? req.body.defaultStack : undefined
+  });
+  res.json({ ok: true, config: next });
+});
+
+app.post('/api/website-coder/ask', async (req, res) => {
+  try {
+    const prompt = typeof req.body?.prompt === 'string' ? req.body.prompt.trim() : '';
+    if (!prompt) {
+      res.status(400).json({ ok: false, error: 'prompt is required' });
+      return;
+    }
+
+    const result = await askWebsiteCoder({
+      prompt,
+      mode: typeof req.body?.mode === 'string' ? req.body.mode : undefined,
+      language: typeof req.body?.language === 'string' ? req.body.language : undefined,
+      stack: typeof req.body?.stack === 'string' ? req.body.stack : undefined
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message, status: getKimiLaneStatus() });
   }
 });
 

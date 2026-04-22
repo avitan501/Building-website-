@@ -72,6 +72,7 @@ function summarizeTask(task = {}) {
     status: task.status || 'open',
     priority: task.priority || 'normal',
     next_step: task.next_step || '',
+    due_date: task.due_date || '',
     task_notes: task.task_notes || '',
     last_contact_at: task.last_contact_at || '',
     last_message_at: task.last_message_at || '',
@@ -133,6 +134,7 @@ async function createTaskHubTask(tasksFile, input = {}, options = {}) {
     title: title || undefined,
     description: description || undefined,
     next_step: normalizeText(input.next_step || input.nextStep),
+    due_date: normalizeText(input.due_date || input.follow_up_at || input.followUpAt),
     priority: normalizeText(input.priority) || 'normal',
     status: normalizeText(input.status) || 'open',
     task_notes: normalizeText(input.task_notes || input.taskNotes),
@@ -166,6 +168,9 @@ async function updateTaskHubTask(tasksFile, taskId, patch = {}, options = {}) {
     next_step: Object.prototype.hasOwnProperty.call(patch, 'next_step') || Object.prototype.hasOwnProperty.call(patch, 'nextStep')
       ? normalizeText(patch.next_step || patch.nextStep)
       : tasks[index].next_step,
+    due_date: Object.prototype.hasOwnProperty.call(patch, 'due_date') || Object.prototype.hasOwnProperty.call(patch, 'follow_up_at') || Object.prototype.hasOwnProperty.call(patch, 'followUpAt')
+      ? normalizeText(patch.due_date || patch.follow_up_at || patch.followUpAt)
+      : tasks[index].due_date,
     task_notes: Object.prototype.hasOwnProperty.call(patch, 'task_notes') || Object.prototype.hasOwnProperty.call(patch, 'taskNotes')
       ? normalizeText(patch.task_notes || patch.taskNotes)
       : tasks[index].task_notes
@@ -340,8 +345,10 @@ function renderTaskHubPage() {
       .top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px; }
       .title { margin: 0; font-size: 32px; }
       .muted { color: var(--muted); }
-      .stats, .task-grid, .contact-grid { display: grid; gap: 14px; }
+      .stats, .task-grid, .contact-grid, .focus-grid { display: grid; gap: 14px; }
       .stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin: 18px 0; }
+      .focus-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 0 0 18px; }
+      .focus-card { background: rgba(17, 24, 39, 0.95); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 16px; padding: 14px; }
       .task-grid { grid-template-columns: 1fr; }
       .contact-grid { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
       .card, .task-card, .contact-card { background: rgba(17, 24, 39, 0.95); border: 1px solid var(--line); border-radius: 16px; }
@@ -392,6 +399,7 @@ function renderTaskHubPage() {
       body.compact-mode .row { gap: 8px; }
       body.compact-mode .pill { padding: 5px 8px; font-size: 11px; }
       body.compact-mode .timeline-item { padding: 8px; }
+      body.compact-mode .focus-card { padding: 10px; border-radius: 12px; }
       @media (max-width: 720px) {
         .shell { padding: 16px; }
         .title { font-size: 26px; }
@@ -437,6 +445,7 @@ function renderTaskHubPage() {
               <option value="low">low</option>
             </select>
             <input name="next_step" placeholder="צעד הבא" />
+            <input type="date" name="due_date" placeholder="תאריך follow-up" />
           </div>
           <div style="margin-top:10px;"><textarea name="description" placeholder="תיאור קצר של המשימה"></textarea></div>
           <div style="margin-top:10px;"><button type="submit">הוסף משימה</button></div>
@@ -470,6 +479,7 @@ function renderTaskHubPage() {
       </div>
 
       <div id="stats" class="stats"></div>
+      <div id="focus"></div>
       <div id="tasks" class="task-grid"></div>
     </div>
 
@@ -593,6 +603,61 @@ function renderTaskHubPage() {
           });
       }
 
+      function dueDateInfo(task) {
+        const raw = String(task.due_date || '').trim();
+        if (!raw) return null;
+        const due = new Date(raw + 'T00:00:00Z');
+        if (Number.isNaN(due.getTime())) return { label: raw, rank: 4 };
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
+        if (diffDays < 0) return { label: 'Overdue', rank: 0, className: 'warn' };
+        if (diffDays === 0) return { label: 'Today', rank: 1, className: 'good' };
+        if (diffDays === 1) return { label: 'Tomorrow', rank: 2, className: '' };
+        return { label: 'Follow-up ' + raw, rank: 3, className: '' };
+      }
+
+      function getFocusTasks(tasks) {
+        return (tasks || [])
+          .filter(function(task) { return isActiveTask(task); })
+          .slice()
+          .sort(function(a, b) {
+            const dueDiff = (dueDateInfo(a)?.rank ?? 5) - (dueDateInfo(b)?.rank ?? 5);
+            if (dueDiff !== 0) return dueDiff;
+            const priorityWeight = { urgent: 0, high: 1, normal: 2, low: 3 };
+            const priorityDiff = (priorityWeight[a.priority] ?? 9) - (priorityWeight[b.priority] ?? 9);
+            if (priorityDiff !== 0) return priorityDiff;
+            const pendingDiff = Number(Boolean(b.stats && b.stats.pending)) - Number(Boolean(a.stats && a.stats.pending));
+            if (pendingDiff !== 0) return pendingDiff;
+            const aRecent = Math.max(Date.parse(a.last_contact_at || 0) || 0, Date.parse(a.updated_at || 0) || 0);
+            const bRecent = Math.max(Date.parse(b.last_contact_at || 0) || 0, Date.parse(b.updated_at || 0) || 0);
+            return bRecent - aRecent;
+          })
+          .slice(0, 5);
+      }
+
+      function renderFocusSection(tasks) {
+        const focusTasks = getFocusTasks(tasks);
+        if (!focusTasks.length) return '';
+        return '<div class="section-title">היום הכי חשוב</div>'
+          + '<div class="focus-grid">'
+          + focusTasks.map(function(task) {
+            const due = dueDateInfo(task);
+            return '<div class="focus-card">'
+              + '<div class="tiny">' + escapeHtml(task.id) + '</div>'
+              + '<strong>' + escapeHtml(task.title) + '</strong>'
+              + '<div class="row" style="margin-top:8px;">'
+              + '<span class="pill">' + escapeHtml(task.priority) + '</span>'
+              + '<span class="pill">' + escapeHtml(task.status) + '</span>'
+              + (due ? '<span class="pill ' + escapeHtml(due.className || '') + '">' + escapeHtml(due.label) + '</span>' : '')
+              + '</div>'
+              + (task.next_step ? '<div class="tiny" style="margin-top:8px;">Next: ' + escapeHtml(task.next_step) + '</div>' : '')
+              + (task.stats && task.stats.pending ? '<div class="tiny" style="margin-top:6px;">יש שיחות ממתינות</div>' : '')
+              + '</div>';
+          }).join('')
+          + '</div>';
+      }
+
       function renderContact(task, contact) {
         return '<div class="contact-card">'
           + '<div class="row spread"><strong>' + escapeHtml(contact.name || 'Unnamed contact') + '</strong>'
@@ -659,6 +724,7 @@ function renderTaskHubPage() {
           + (task.task_notes ? renderExpandableText('Notes: ' + task.task_notes, 160, 'הערות מלאות') : '')
           + '<div class="row">'
           + (task.next_step ? '<span class="pill warn">Next: ' + escapeHtml(task.next_step) + '</span>' : '')
+          + (task.due_date ? '<span class="pill">Follow-up: ' + escapeHtml(task.due_date) + '</span>' : '')
           + '<span class="pill">Updated: ' + escapeHtml(formatTime(task.updated_at)) + '</span>'
           + (task.last_contact_at ? '<span class="pill good">Last contact: ' + escapeHtml(formatTime(task.last_contact_at)) + '</span>' : '')
           + '</div>'
@@ -676,6 +742,7 @@ function renderTaskHubPage() {
             }).join('')
           + '</select>'
           + '<input name="next_step" value="' + escapeHtml(task.next_step || '') + '" placeholder="צעד הבא" />'
+          + '<input type="date" name="due_date" value="' + escapeHtml(task.due_date || '') + '" placeholder="תאריך follow-up" />'
           + '</div>'
           + '<div style="margin-top:10px;"><textarea name="task_notes" placeholder="הערות על המשימה">' + escapeHtml(task.task_notes || '') + '</textarea></div>'
           + '<div style="margin-top:10px;"><button type="submit" class="secondary">שמור משימה</button></div>'
@@ -707,6 +774,7 @@ function renderTaskHubPage() {
       function render() {
         const visibleTasks = getVisibleTasks();
         document.getElementById('stats').innerHTML = renderStats(visibleTasks);
+        document.getElementById('focus').innerHTML = renderFocusSection(visibleTasks);
         const html = visibleTasks.map(renderTask).filter(Boolean).join('');
         document.getElementById('tasks').innerHTML = html || '<div class="empty">אין עדיין משימות תואמות</div>';
         applyCompactMode();

@@ -9,9 +9,15 @@
     "payment_status": "unknown",
     "current_stage": "new",
     "next_step": "Ask the customer to clarify the issue or send a text version of the voice note",
-    "last_customer_message": "[audio/ogg; codecs=opus]\n\nלא יודע מה הבעיה שלו לשלוח זיל, אבל מקסימום אני אמצא פתרון.",
-    "latest_source_path": "/root/.openclaw/media/inbound/9e51bcb9-84b5-463e-a59c-4c47dda6b671.ogg",
+    "last_customer_message": "אתה באזור קצת יותר מאוחר?\nיש לי מזומן",
+    "latest_source_path": "",
     "activity_log": [
+      {
+        "timestamp": "2026-04-22T16:04:51.000Z",
+        "media_type": "",
+        "source_path": "",
+        "body": "אתה באזור קצת יותר מאוחר?\nיש לי מזומן"
+      },
       {
         "timestamp": "2026-04-21T18:42:06.000Z",
         "media_type": "audio/ogg; codecs=opus",
@@ -51,7 +57,7 @@
     ],
     "source": "whatsapp-auto-sync",
     "created_at": "2026-04-21T18:44:18.539Z",
-    "updated_at": "2026-04-21T19:23:08.535Z",
+    "updated_at": "2026-04-22T16:05:00.949Z",
     "standing_summary": "Order ORDER-1001 for Aron Cohen is currently at stage \"new\". Payment status: unknown. Next step: Ask the customer to clarify the issue or send a text version of the voice note."
   }
 ]

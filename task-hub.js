@@ -73,6 +73,7 @@ function summarizeTask(task = {}) {
     priority: task.priority || 'normal',
     next_step: task.next_step || '',
     due_date: task.due_date || '',
+    task_type: task.task_type || 'task',
     task_notes: task.task_notes || '',
     last_contact_at: task.last_contact_at || '',
     last_message_at: task.last_message_at || '',
@@ -135,6 +136,7 @@ async function createTaskHubTask(tasksFile, input = {}, options = {}) {
     description: description || undefined,
     next_step: normalizeText(input.next_step || input.nextStep),
     due_date: normalizeText(input.due_date || input.follow_up_at || input.followUpAt),
+    task_type: normalizeText(input.task_type || input.taskType) || 'task',
     priority: normalizeText(input.priority) || 'normal',
     status: normalizeText(input.status) || 'open',
     task_notes: normalizeText(input.task_notes || input.taskNotes),
@@ -171,6 +173,9 @@ async function updateTaskHubTask(tasksFile, taskId, patch = {}, options = {}) {
     due_date: Object.prototype.hasOwnProperty.call(patch, 'due_date') || Object.prototype.hasOwnProperty.call(patch, 'follow_up_at') || Object.prototype.hasOwnProperty.call(patch, 'followUpAt')
       ? normalizeText(patch.due_date || patch.follow_up_at || patch.followUpAt)
       : tasks[index].due_date,
+    task_type: Object.prototype.hasOwnProperty.call(patch, 'task_type') || Object.prototype.hasOwnProperty.call(patch, 'taskType')
+      ? normalizeText(patch.task_type || patch.taskType)
+      : tasks[index].task_type,
     task_notes: Object.prototype.hasOwnProperty.call(patch, 'task_notes') || Object.prototype.hasOwnProperty.call(patch, 'taskNotes')
       ? normalizeText(patch.task_notes || patch.taskNotes)
       : tasks[index].task_notes
@@ -446,6 +451,11 @@ function renderTaskHubPage() {
             </select>
             <input name="next_step" placeholder="צעד הבא" />
             <input type="date" name="due_date" placeholder="תאריך follow-up" />
+            <select name="task_type">
+              <option value="ask-ai">לבקש ממני / AI</option>
+              <option value="remember">לזכור / לשמור</option>
+              <option value="task">כללי</option>
+            </select>
           </div>
           <div style="margin-top:10px;"><textarea name="description" placeholder="תיאור קצר של המשימה"></textarea></div>
           <div style="margin-top:10px;"><button type="submit">הוסף משימה</button></div>
@@ -474,6 +484,12 @@ function renderTaskHubPage() {
             <option value="pending">עם שיחות ממתינות</option>
             <option value="contacted">עם אנשי קשר שטופלו</option>
           </select>
+          <select id="typeFilter">
+            <option value="all">כל הסוגים</option>
+            <option value="ask-ai">משימות לבקש ממני / AI</option>
+            <option value="remember">משימות לזכור / לשמור</option>
+            <option value="task">כללי</option>
+          </select>
         </div>
         <div class="tiny" style="margin-top:8px;">המשימות הפעילות עולות אוטומטית למעלה.</div>
       </div>
@@ -484,7 +500,7 @@ function renderTaskHubPage() {
     </div>
 
     <script>
-      const state = { tasks: [], filter: '', compactMode: true, filters: { status: 'active', priority: 'all', contacts: 'all' } };
+      const state = { tasks: [], filter: '', compactMode: true, filters: { status: 'active', priority: 'all', contacts: 'all', type: 'all' } };
 
       function escapeHtml(value) {
         return String(value == null ? '' : value)
@@ -583,6 +599,7 @@ function renderTaskHubPage() {
             const statusFilter = state.filters.status;
             const priorityFilter = state.filters.priority;
             const contactFilter = state.filters.contacts;
+            const typeFilter = state.filters.type;
             if (state.filter) {
               const searchable = [task.title, task.description, task.next_step, task.task_notes]
                 .concat((task.contacts || []).map(function(contact) {
@@ -599,6 +616,7 @@ function renderTaskHubPage() {
             if (contactFilter === 'without-contacts' && task.stats && task.stats.contacts > 0) return false;
             if (contactFilter === 'pending' && !(task.stats && task.stats.pending > 0)) return false;
             if (contactFilter === 'contacted' && !(task.stats && task.stats.contacted > 0)) return false;
+            if (typeFilter !== 'all' && String(task.task_type || 'task') !== typeFilter) return false;
             return true;
           });
       }
@@ -717,6 +735,7 @@ function renderTaskHubPage() {
           + '<div class="row">'
           + '<span class="pill">' + escapeHtml(task.status) + '</span>'
           + '<span class="pill">' + escapeHtml(task.priority) + '</span>'
+          + '<span class="pill">' + escapeHtml(task.task_type || 'task') + '</span>'
           + '<span class="pill ' + (task.stats && task.stats.pending ? 'warn' : 'good') + '">' + escapeHtml((task.stats && task.stats.contacts) || 0) + ' contacts</span>'
           + (task.monday_url ? '<a class="pill" href="' + escapeHtml(task.monday_url) + '" target="_blank" rel="noreferrer">Monday</a>' : '')
           + '</div></div>'
@@ -743,7 +762,12 @@ function renderTaskHubPage() {
           + '</select>'
           + '<input name="next_step" value="' + escapeHtml(task.next_step || '') + '" placeholder="צעד הבא" />'
           + '<input type="date" name="due_date" value="' + escapeHtml(task.due_date || '') + '" placeholder="תאריך follow-up" />'
-          + '</div>'
+          + '<select name="task_type">'
+          + ['ask-ai','remember','task'].map(function(option) {
+              return '<option value="' + option + '"' + (String(task.task_type || 'task') === option ? ' selected' : '') + '>' + option + '</option>';
+            }).join('')
+          + '</select>'
+          + '</div>
           + '<div style="margin-top:10px;"><textarea name="task_notes" placeholder="הערות על המשימה">' + escapeHtml(task.task_notes || '') + '</textarea></div>'
           + '<div style="margin-top:10px;"><button type="submit" class="secondary">שמור משימה</button></div>'
           + '</form>'
@@ -804,6 +828,11 @@ function renderTaskHubPage() {
 
       document.getElementById('contactFilter').addEventListener('change', function(event) {
         state.filters.contacts = String(event.target.value || 'all');
+        render();
+      });
+
+      document.getElementById('typeFilter').addEventListener('change', function(event) {
+        state.filters.type = String(event.target.value || 'all');
         render();
       });
 

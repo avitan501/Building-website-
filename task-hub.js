@@ -376,8 +376,22 @@ function renderTaskHubPage() {
       .tiny { font-size: 12px; color: var(--muted); }
       .search { max-width: 340px; }
       .notice { margin: 10px 0 0; color: #bfdbfe; }
+      .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+      .toggle-pill { display: inline-flex; align-items: center; gap: 8px; }
+      .toggle-pill input { width: auto; }
       details { margin-top: 10px; }
       summary { cursor: pointer; color: #bfdbfe; }
+      body.compact-mode .card,
+      body.compact-mode .task-card,
+      body.compact-mode .contact-card { border-radius: 12px; }
+      body.compact-mode .card { padding: 12px; }
+      body.compact-mode .task-card { padding: 12px; }
+      body.compact-mode .contact-card { padding: 10px; }
+      body.compact-mode .task-title { font-size: 18px; }
+      body.compact-mode .section-title { margin: 12px 0 8px; font-size: 14px; }
+      body.compact-mode .row { gap: 8px; }
+      body.compact-mode .pill { padding: 5px 8px; font-size: 11px; }
+      body.compact-mode .timeline-item { padding: 8px; }
       @media (max-width: 720px) {
         .shell { padding: 16px; }
         .title { font-size: 26px; }
@@ -401,7 +415,10 @@ function renderTaskHubPage() {
       <div class="card" style="margin-bottom:16px;">
         <div class="row spread" style="margin-bottom:12px;">
           <strong>משימה חדשה</strong>
-          <input id="searchInput" class="search" type="search" placeholder="חפש משימה או איש קשר" />
+          <div class="toolbar">
+            <label class="pill toggle-pill"><input id="compactToggle" type="checkbox" checked /> compact</label>
+            <input id="searchInput" class="search" type="search" placeholder="חפש משימה או איש קשר" />
+          </div>
         </div>
         <form id="createTaskForm">
           <div class="form-grid">
@@ -424,6 +441,32 @@ function renderTaskHubPage() {
           <div style="margin-top:10px;"><textarea name="description" placeholder="תיאור קצר של המשימה"></textarea></div>
           <div style="margin-top:10px;"><button type="submit">הוסף משימה</button></div>
         </form>
+        <div class="form-grid" style="margin-top:14px;">
+          <select id="statusFilter">
+            <option value="all">כל הסטטוסים</option>
+            <option value="active">רק פעילות</option>
+            <option value="open">open</option>
+            <option value="follow-up">follow-up</option>
+            <option value="waiting">waiting</option>
+            <option value="blocked">blocked</option>
+            <option value="done">done</option>
+          </select>
+          <select id="priorityFilter">
+            <option value="all">כל הדחיפויות</option>
+            <option value="urgent">urgent</option>
+            <option value="high">high</option>
+            <option value="normal">normal</option>
+            <option value="low">low</option>
+          </select>
+          <select id="contactFilter">
+            <option value="all">כל המשימות</option>
+            <option value="with-contacts">עם אנשי קשר</option>
+            <option value="without-contacts">בלי אנשי קשר</option>
+            <option value="pending">עם שיחות ממתינות</option>
+            <option value="contacted">עם אנשי קשר שטופלו</option>
+          </select>
+        </div>
+        <div class="tiny" style="margin-top:8px;">המשימות הפעילות עולות אוטומטית למעלה.</div>
       </div>
 
       <div id="stats" class="stats"></div>
@@ -431,7 +474,7 @@ function renderTaskHubPage() {
     </div>
 
     <script>
-      const state = { tasks: [], filter: '' };
+      const state = { tasks: [], filter: '', compactMode: true, filters: { status: 'all', priority: 'all', contacts: 'all' } };
 
       function escapeHtml(value) {
         return String(value == null ? '' : value)
@@ -510,6 +553,46 @@ function renderTaskHubPage() {
         }).join('');
       }
 
+      function isActiveTask(task) {
+        return !['done', 'closed'].includes(String(task.status || '').toLowerCase());
+      }
+
+      function getVisibleTasks() {
+        return (state.tasks || [])
+          .slice()
+          .sort(function(a, b) {
+            const activeDiff = Number(isActiveTask(b)) - Number(isActiveTask(a));
+            if (activeDiff !== 0) return activeDiff;
+            const pendingDiff = Number(Boolean(b.stats && b.stats.pending)) - Number(Boolean(a.stats && a.stats.pending));
+            if (pendingDiff !== 0) return pendingDiff;
+            const aRecent = Math.max(Date.parse(a.last_contact_at || 0) || 0, Date.parse(a.updated_at || 0) || 0);
+            const bRecent = Math.max(Date.parse(b.last_contact_at || 0) || 0, Date.parse(b.updated_at || 0) || 0);
+            return bRecent - aRecent;
+          })
+          .filter(function(task) {
+            const statusFilter = state.filters.status;
+            const priorityFilter = state.filters.priority;
+            const contactFilter = state.filters.contacts;
+            if (state.filter) {
+              const searchable = [task.title, task.description, task.next_step, task.task_notes]
+                .concat((task.contacts || []).map(function(contact) {
+                  return [contact.name, contact.company, contact.phone, contact.progress_summary, contact.proposal_summary].join(' ');
+                }))
+                .join(' ')
+                .toLowerCase();
+              if (!searchable.includes(state.filter)) return false;
+            }
+            if (statusFilter === 'active' && !isActiveTask(task)) return false;
+            if (statusFilter !== 'all' && statusFilter !== 'active' && String(task.status || '') !== statusFilter) return false;
+            if (priorityFilter !== 'all' && String(task.priority || '') !== priorityFilter) return false;
+            if (contactFilter === 'with-contacts' && !(task.stats && task.stats.contacts > 0)) return false;
+            if (contactFilter === 'without-contacts' && task.stats && task.stats.contacts > 0) return false;
+            if (contactFilter === 'pending' && !(task.stats && task.stats.pending > 0)) return false;
+            if (contactFilter === 'contacted' && !(task.stats && task.stats.contacted > 0)) return false;
+            return true;
+          });
+      }
+
       function renderContact(task, contact) {
         return '<div class="contact-card">'
           + '<div class="row spread"><strong>' + escapeHtml(contact.name || 'Unnamed contact') + '</strong>'
@@ -559,14 +642,6 @@ function renderTaskHubPage() {
       }
 
       function renderTask(task) {
-        const searchable = [task.title, task.description, task.next_step, task.task_notes]
-          .concat((task.contacts || []).map(function(contact) {
-            return [contact.name, contact.company, contact.phone, contact.progress_summary, contact.proposal_summary].join(' ');
-          }))
-          .join(' ')
-          .toLowerCase();
-        if (state.filter && !searchable.includes(state.filter)) return '';
-
         const contactHtml = task.contacts && task.contacts.length
           ? task.contacts.map(function(contact) { return renderContact(task, contact); }).join('')
           : '<div class="empty">אין עדיין אנשי קשר למשימה הזאת</div>';
@@ -625,10 +700,16 @@ function renderTaskHubPage() {
           + '</div>';
       }
 
+      function applyCompactMode() {
+        document.body.classList.toggle('compact-mode', Boolean(state.compactMode));
+      }
+
       function render() {
-        document.getElementById('stats').innerHTML = renderStats(state.tasks);
-        const html = state.tasks.map(renderTask).filter(Boolean).join('');
+        const visibleTasks = getVisibleTasks();
+        document.getElementById('stats').innerHTML = renderStats(visibleTasks);
+        const html = visibleTasks.map(renderTask).filter(Boolean).join('');
         document.getElementById('tasks').innerHTML = html || '<div class="empty">אין עדיין משימות תואמות</div>';
+        applyCompactMode();
       }
 
       async function load() {
@@ -640,6 +721,26 @@ function renderTaskHubPage() {
 
       document.getElementById('searchInput').addEventListener('input', function(event) {
         state.filter = String(event.target.value || '').trim().toLowerCase();
+        render();
+      });
+
+      document.getElementById('statusFilter').addEventListener('change', function(event) {
+        state.filters.status = String(event.target.value || 'all');
+        render();
+      });
+
+      document.getElementById('priorityFilter').addEventListener('change', function(event) {
+        state.filters.priority = String(event.target.value || 'all');
+        render();
+      });
+
+      document.getElementById('contactFilter').addEventListener('change', function(event) {
+        state.filters.contacts = String(event.target.value || 'all');
+        render();
+      });
+
+      document.getElementById('compactToggle').addEventListener('change', function(event) {
+        state.compactMode = Boolean(event.target.checked);
         render();
       });
 

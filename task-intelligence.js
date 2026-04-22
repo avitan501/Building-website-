@@ -477,7 +477,7 @@ function writeTasks(tasksFile, tasks) {
 function findDuplicateTask(tasks, taskCandidate) {
   const normalizedTitle = normalizeComparableText(taskCandidate.title);
   const referencedTaskId = extractTaskIdReference(`${taskCandidate.title}\n${taskCandidate.description}\n${taskCandidate.source_text}`);
-  const candidateKeys = new Set(buildRelatedKeys(taskCandidate));
+  const strongCandidateKeys = buildRelatedKeys(taskCandidate).filter(key => /^(phone:|customer:|supplier:)/.test(key));
 
   return tasks.find(task => {
     if (String(task.status || '').toLowerCase() === 'done') return false;
@@ -486,12 +486,9 @@ function findDuplicateTask(tasks, taskCandidate) {
     if (taskCandidate.whatsapp_number && normalizePhone(task.whatsapp_number) === normalizePhone(taskCandidate.whatsapp_number)) return true;
     if (taskCandidate.customer_name && normalizeComparableText(task.customer_name) === normalizeComparableText(taskCandidate.customer_name) && task.category === taskCandidate.category) return true;
 
+    if (!strongCandidateKeys.length) return false;
     const existingKeys = new Set(buildRelatedKeys(task));
-    let overlap = 0;
-    for (const key of candidateKeys) {
-      if (existingKeys.has(key)) overlap += 1;
-    }
-    return overlap >= 2;
+    return strongCandidateKeys.some(key => existingKeys.has(key));
   }) || null;
 }
 

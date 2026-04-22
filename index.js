@@ -1558,10 +1558,16 @@ app.get('/messages', (req, res) => {
 });
 
 app.get(['/tasks', '/task-hub'], (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.send(renderTaskHubPage());
 });
 
 app.get('/ops/queue', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.send(renderQueueDashboardPage());
 });
 
@@ -1616,10 +1622,16 @@ app.get('/api/tasks', (req, res) => {
 });
 
 app.get('/api/task-hub', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.json(buildTaskHubSnapshot(tasksFile));
 });
 
 app.get('/api/queue-dashboard', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.json(buildQueueSnapshot(tasksFile));
 });
 

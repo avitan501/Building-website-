@@ -1,57 +1,104 @@
+
 const express = require('express');
 const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const { transcribeAudio, readDocument } = require('./order-intelligence');
 const { syncWhatsAppOrders } = require('./whatsapp-order-sync');
 const { readTasks, createTaskFromText, syncExistingTaskToMonday, getMondayBoard } = require('./task-intelligence');
 const { syncMessageTasks } = require('./message-task-sync');
 const { getStatus: getKimiLaneStatus, readConfig: readKimiLaneConfig, writeConfig: writeKimiLaneConfig, askWebsiteCoder } = require('./kimi-coder');
+const {
+  readConfig: readAgentQueueConfig,
+  writeConfig: writeAgentQueueConfig,
+  getQueueStatus,
+  listQueueTasks,
+  enqueueTask,
+  processNextQueuedTask,
+  runNightQueue
+} = require('./agent-queue');
 const app = express();
 
 app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false }));
 
 const messagesFile = '/root/mysite/messages.json';
 const tasksFile = '/root/mysite/tasks.json';
 const ordersFile = '/root/mysite/orders.json';
 const siteConfigFile = '/root/mysite/site-config.json';
+const siteUsersFile = '/root/mysite/data/site_users.json';
 
-function readJsonArray(filePath) {
+function readJson(filePath, fallback) {
   try {
-    if (!fs.existsSync(filePath)) return [];
-    const raw = fs.readFileSync(filePath, 'utf8') || '[]';
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    return [];
+    if (!fs.existsSync(filePath)) return fallback;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    if (!String(raw || '').trim()) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
   }
 }
 
-function writeJsonArray(filePath, value) {
+function writeJson(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 }
 
+function readJsonArray(filePath) {
+  const parsed = readJson(filePath, []);
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function writeJsonArray(filePath, value) {
+  writeJson(filePath, value);
+}
+
 function readSiteConfig() {
-  try {
-    if (!fs.existsSync(siteConfigFile)) {
-      return {
-        title: 'Personal AI Dashboard',
-        subtitle: 'האתר שלי מנוהל דרך טלגרם',
-        bg: '#f5f5f5',
-        text: '#333333',
-        sections: [],
-        pages: {}
-      };
-    }
-    return JSON.parse(fs.readFileSync(siteConfigFile, 'utf8'));
-  } catch {
-    return {
-      title: 'Personal AI Dashboard',
-      subtitle: 'האתר שלי מנוהל דרך טלגרם',
-      bg: '#f5f5f5',
-      text: '#333333',
-      sections: [],
-      pages: {}
-    };
-  }
+  return readJson(siteConfigFile, {
+    title: 'כניסה לחשבון',
+    subtitle: 'התחברות מהירה כדי לראות את סטטוס החשבון וההזמנות',
+    bg: '#f5f5f5',
+    text: '#111111',
+    brand: {
+      name: 'Build Your Account',
+      accent: '#f96302',
+      dark: '#111111',
+      light: '#ffffff'
+    },
+    entryPage: {
+      eyebrow: 'WELCOME',
+      headline: 'החשבון שלכם, מהיר וברור',
+      subheadline: 'התחברו עם Google או עם טלפון וסיסמה כדי לראות סטטוס חשבון, הזמנות ופעילות.',
+      phoneLoginTitle: 'כניסה עם טלפון',
+      googleButtonLabel: 'המשך עם Google',
+      registerButtonLabel: 'פתיחת חשבון חדש',
+      tiles: [
+        {
+          title: 'סטטוס חשבון',
+          content: 'הלקוחות חוזרים ורואים את מצב החשבון שלהם בכל רגע.'
+        },
+        {
+          title: 'כניסה מהירה',
+          content: 'טלפון וסיסמה היום, Google אחרי חיבור OAuth.'
+        },
+        {
+          title: 'אווירה מסחרית',
+          content: 'צבעים חמים וקוביות השראה בסגנון Home Depot.'
+        },
+        {
+          title: 'פרופורציות נקיות',
+          content: 'טיפוגרפיה ומרווחים בהשראת Apple ו-Tesla.'
+        }
+      ]
+    },
+    sections: [],
+    pages: {}
+  });
+}
+
+function readSiteUsers() {
+  const users = readJson(siteUsersFile, []);
+  return Array.isArray(users) ? users : [];
 }
 
 function escapeHtml(s) {
@@ -65,6 +112,752 @@ function escapeHtml(s) {
 
 function normalizePhone(value) {
   return String(value || '').replace(/[^\d+]/g, '');
+}
+
+function createPasswordRecord(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password || ''), salt, 64).toString('hex');
+  return { salt, hash };
+}
+
+function verifyPassword(password, user) {
+  try {
+    const derived = crypto.scryptSync(String(password || ''), String(user?.password_salt || ''), 64);
+    const stored = Buffer.from(String(user?.password_hash || ''), 'hex');
+    return stored.length === derived.length && crypto.timingSafeEqual(stored, derived);
+  } catch {
+    return false;
+  }
+}
+
+function parseCookies(req) {
+  const raw = String(req.headers.cookie || '');
+  if (!raw.trim()) return {};
+
+  return raw.split(';').reduce((acc, part) => {
+    const [key, ...rest] = part.trim().split('=');
+    if (!key) return acc;
+    acc[key] = decodeURIComponent(rest.join('='));
+    return acc;
+  }, {});
+}
+
+function readSessionToken(req) {
+  return parseCookies(req).site_session || '';
+}
+
+function setSessionCookie(res, token) {
+  res.setHeader('Set-Cookie', `site_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 45}`);
+}
+
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', 'site_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
+}
+
+function readCurrentSiteUser(req) {
+  const token = readSessionToken(req);
+  if (!token) return null;
+  const users = readSiteUsers();
+  return users.find(user => user.session_token === token && Date.parse(user.session_expires_at || '') > Date.now()) || null;
+}
+
+function issueSessionForUser(users, index) {
+  const token = crypto.randomBytes(24).toString('hex');
+  const now = new Date().toISOString();
+  users[index] = {
+    ...users[index],
+    last_login_at: now,
+    session_token: token,
+    session_expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 45).toISOString(),
+    updated_at: now
+  };
+  writeJson(siteUsersFile, users);
+  return token;
+}
+
+function clearSessionForToken(token) {
+  if (!token) return;
+  const users = readSiteUsers();
+  const index = users.findIndex(user => user.session_token === token);
+  if (index === -1) return;
+  users[index] = {
+    ...users[index],
+    session_token: '',
+    session_expires_at: '',
+    updated_at: new Date().toISOString()
+  };
+  writeJson(siteUsersFile, users);
+}
+
+function formatDisplayDate(value) {
+  if (!value) return 'עדיין אין נתון';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'עדיין אין נתון';
+  return date.toISOString().slice(0, 16).replace('T', ' ');
+}
+
+function renderEntryPage(cfg, flash = {}) {
+  const theme = {
+    accent: cfg.brand?.accent || '#f96302',
+    dark: cfg.brand?.dark || '#111111',
+    light: cfg.brand?.light || '#ffffff',
+    bg: cfg.bg || '#f5f5f5',
+    text: cfg.text || '#111111',
+    name: cfg.brand?.name || cfg.title || 'Build Your Account'
+  };
+  const entry = cfg.entryPage || {};
+  const tiles = Array.isArray(entry.tiles) && entry.tiles.length ? entry.tiles : [];
+  const flashHtml = flash.error
+    ? `<div class="flash flash-error">${escapeHtml(flash.error)}</div>`
+    : flash.info
+      ? `<div class="flash flash-info">${escapeHtml(flash.info)}</div>`
+      : '';
+  const googleHelp = process.env.GOOGLE_CLIENT_ID
+    ? 'Google login מוכן לחיבור ברגע שנפעיל OAuth מלא.'
+    : 'Google login יוצג כבר עכשיו, ויהפוך לאמיתי אחרי חיבור Google OAuth.';
+
+  return `
+    <!DOCTYPE html>
+    <html lang="he" dir="rtl">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>${escapeHtml(cfg.title || 'כניסה לחשבון')}</title>
+        <style>
+          :root {
+            --accent: ${escapeHtml(theme.accent)};
+            --dark: ${escapeHtml(theme.dark)};
+            --light: ${escapeHtml(theme.light)};
+            --bg: ${escapeHtml(theme.bg)};
+            --text: ${escapeHtml(theme.text)};
+          }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: linear-gradient(180deg, #fff8f2 0%, var(--bg) 48%, #ffffff 100%);
+            color: var(--text);
+          }
+          .top-strip {
+            background: var(--accent);
+            color: white;
+            text-align: center;
+            padding: 12px 18px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+          }
+          .page {
+            max-width: 1220px;
+            margin: 0 auto;
+            padding: 28px 20px 40px;
+          }
+          .brand-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 28px;
+          }
+          .brand-lockup {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+          }
+          .brand-box {
+            width: 54px;
+            height: 54px;
+            border-radius: 14px;
+            background: var(--accent);
+            color: white;
+            display: grid;
+            place-items: center;
+            font-size: 13px;
+            font-weight: 900;
+            line-height: 1;
+            text-align: center;
+            box-shadow: 0 18px 35px rgba(249, 99, 2, 0.25);
+          }
+          .brand-name {
+            font-size: 24px;
+            font-weight: 800;
+          }
+          .brand-sub {
+            color: #5f6368;
+            font-size: 14px;
+          }
+          .hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.25fr) minmax(320px, 460px);
+            gap: 26px;
+            align-items: stretch;
+          }
+          .hero-panel,
+          .auth-card,
+          .tile,
+          .mini-card {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid rgba(17,17,17,0.08);
+            border-radius: 28px;
+            box-shadow: 0 22px 60px rgba(17,17,17,0.08);
+          }
+          .hero-panel {
+            padding: 34px;
+            position: relative;
+            overflow: hidden;
+          }
+          .hero-panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(249,99,2,0.14), transparent 38%, rgba(17,17,17,0.05));
+            pointer-events: none;
+          }
+          .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(249,99,2,0.12);
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            margin-bottom: 18px;
+          }
+          h1 {
+            font-size: clamp(42px, 6vw, 74px);
+            line-height: 0.95;
+            margin: 0 0 18px;
+            letter-spacing: -0.05em;
+            max-width: 9ch;
+          }
+          .hero-copy {
+            font-size: 18px;
+            line-height: 1.7;
+            color: #3c4043;
+            max-width: 54ch;
+            margin-bottom: 24px;
+          }
+          .hero-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 28px;
+          }
+          .hero-badge {
+            padding: 11px 14px;
+            border-radius: 14px;
+            background: white;
+            border: 1px solid rgba(17,17,17,0.08);
+            font-size: 14px;
+            font-weight: 700;
+          }
+          .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+          }
+          .tile {
+            padding: 20px;
+            min-height: 154px;
+            position: relative;
+          }
+          .tile::after {
+            content: "";
+            position: absolute;
+            inset-inline-start: 0;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--accent), #ffbb80);
+            border-radius: 28px 0 0 28px;
+          }
+          .tile strong {
+            display: block;
+            font-size: 24px;
+            margin-bottom: 10px;
+            line-height: 1.05;
+          }
+          .tile p {
+            margin: 0;
+            line-height: 1.6;
+            color: #4f5358;
+          }
+          .auth-card {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+          }
+          .auth-card h2 {
+            margin: 0 0 8px;
+            font-size: 30px;
+            letter-spacing: -0.04em;
+          }
+          .auth-card p {
+            margin: 0;
+            color: #5f6368;
+            line-height: 1.6;
+          }
+          .flash {
+            margin: 18px 0 0;
+            padding: 12px 14px;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 700;
+          }
+          .flash-error { background: #fff2ee; color: #b42318; }
+          .flash-info { background: #eef6ff; color: #175cd3; }
+          .google-form { margin-top: 22px; }
+          .google-button,
+          .primary-button,
+          .secondary-button {
+            width: 100%;
+            border: 0;
+            border-radius: 16px;
+            padding: 15px 18px;
+            font-size: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+          }
+          .google-button:hover,
+          .primary-button:hover,
+          .secondary-button:hover { transform: translateY(-1px); }
+          .google-button {
+            background: #ffffff;
+            color: var(--dark);
+            border: 1px solid rgba(17,17,17,0.12);
+          }
+          .primary-button {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 18px 35px rgba(249, 99, 2, 0.26);
+          }
+          .secondary-button {
+            background: #111111;
+            color: white;
+          }
+          .google-help,
+          .security-note,
+          .toggle-line {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #5f6368;
+            line-height: 1.6;
+          }
+          .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #90959c;
+            font-size: 12px;
+            font-weight: 800;
+            margin: 22px 0;
+            letter-spacing: 0.1em;
+          }
+          .divider::before,
+          .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(17,17,17,0.1);
+          }
+          .auth-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 18px;
+          }
+          .tab-button {
+            border: 1px solid rgba(17,17,17,0.1);
+            background: #f3f4f6;
+            color: #111111;
+            border-radius: 14px;
+            padding: 12px;
+            font-weight: 800;
+            cursor: pointer;
+          }
+          .tab-button.is-active {
+            background: rgba(249,99,2,0.12);
+            border-color: rgba(249,99,2,0.3);
+            color: var(--accent);
+          }
+          .form-panel { display: none; }
+          .form-panel.is-active { display: block; }
+          label {
+            display: block;
+            font-size: 13px;
+            font-weight: 800;
+            color: #2c2f33;
+            margin: 12px 0 8px;
+          }
+          input {
+            width: 100%;
+            border-radius: 14px;
+            border: 1px solid rgba(17,17,17,0.14);
+            background: white;
+            padding: 15px 16px;
+            font: inherit;
+          }
+          input:focus {
+            outline: 2px solid rgba(249,99,2,0.22);
+            border-color: var(--accent);
+          }
+          .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+          }
+          .mini-card {
+            padding: 16px;
+          }
+          .mini-card strong {
+            display: block;
+            font-size: 13px;
+            color: #5f6368;
+            margin-bottom: 8px;
+          }
+          .mini-card span {
+            font-size: 18px;
+            font-weight: 800;
+            line-height: 1.25;
+          }
+          @media (max-width: 980px) {
+            .hero { grid-template-columns: 1fr; }
+          }
+          @media (max-width: 640px) {
+            .page { padding-inline: 14px; }
+            .hero-panel,
+            .auth-card { padding: 22px; }
+            .tile-grid,
+            .mini-grid { grid-template-columns: 1fr; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="top-strip">SPRING BUILD MODE, צבעים חמים, כניסה מהירה ומבנה נקי.</div>
+        <main class="page">
+          <div class="brand-row">
+            <div class="brand-lockup">
+              <div class="brand-box">BUILD</div>
+              <div>
+                <div class="brand-name">${escapeHtml(theme.name)}</div>
+                <div class="brand-sub">${escapeHtml(cfg.subtitle || '')}</div>
+              </div>
+            </div>
+          </div>
+
+          <section class="hero">
+            <div class="hero-panel">
+              <div class="eyebrow">${escapeHtml(entry.eyebrow || 'WELCOME')}</div>
+              <h1>${escapeHtml(entry.headline || 'כניסה מהירה לחשבון')}</h1>
+              <div class="hero-copy">${escapeHtml(entry.subheadline || '')}</div>
+
+              <div class="hero-badges">
+                <div class="hero-badge">Home Depot energy</div>
+                <div class="hero-badge">Apple/Tesla spacing</div>
+                <div class="hero-badge">Status-first account</div>
+              </div>
+
+              <div class="tile-grid">
+                ${tiles.map(tile => `
+                  <article class="tile">
+                    <strong>${escapeHtml(tile.title || '')}</strong>
+                    <p>${escapeHtml(tile.content || '')}</p>
+                  </article>
+                `).join('')}
+              </div>
+
+              <div class="mini-grid">
+                <div class="mini-card">
+                  <strong>גישה חוזרת</strong>
+                  <span>שמירה מאובטחת כדי שהלקוח יחזור לחשבון שלו.</span>
+                </div>
+                <div class="mini-card">
+                  <strong>פרופורציות</strong>
+                  <span>כותרות גדולות, הרבה אוויר ומוקד ברור לפעולה.</span>
+                </div>
+                <div class="mini-card">
+                  <strong>שלב הבא</strong>
+                  <span>אחרי הכניסה, נחבר סטטוס הזמנות וחשבון אמיתי.</span>
+                </div>
+              </div>
+            </div>
+
+            <aside class="auth-card">
+              <h2>${escapeHtml(entry.phoneLoginTitle || 'כניסה לחשבון')}</h2>
+              <p>כניסה אחת ברורה עם שני מסלולים, Google או טלפון וסיסמה.</p>
+              ${flashHtml}
+
+              <form class="google-form" action="/api/auth/google" method="post">
+                <button class="google-button" type="submit">${escapeHtml(entry.googleButtonLabel || 'המשך עם Google')}</button>
+              </form>
+              <div class="google-help">${escapeHtml(googleHelp)}</div>
+
+              <div class="divider">או</div>
+
+              <div class="auth-tabs">
+                <button type="button" class="tab-button is-active" data-tab="login">כניסה</button>
+                <button type="button" class="tab-button" data-tab="register">הרשמה</button>
+              </div>
+
+              <form class="form-panel is-active" data-panel="login" action="/api/auth/login" method="post">
+                <label for="login-phone">טלפון</label>
+                <input id="login-phone" name="phone" type="tel" inputmode="tel" placeholder="0501234567" required />
+
+                <label for="login-password">סיסמה</label>
+                <input id="login-password" name="password" type="password" minlength="6" placeholder="••••••••" required />
+
+                <div style="height:14px"></div>
+                <button class="primary-button" type="submit">התחברות לחשבון</button>
+              </form>
+
+              <form class="form-panel" data-panel="register" action="/api/auth/register" method="post">
+                <label for="register-name">שם מלא</label>
+                <input id="register-name" name="fullName" type="text" placeholder="איך לקרוא לכם" />
+
+                <label for="register-phone">טלפון</label>
+                <input id="register-phone" name="phone" type="tel" inputmode="tel" placeholder="0501234567" required />
+
+                <label for="register-password">סיסמה</label>
+                <input id="register-password" name="password" type="password" minlength="6" placeholder="לפחות 6 תווים" required />
+
+                <div style="height:14px"></div>
+                <button class="secondary-button" type="submit">${escapeHtml(entry.registerButtonLabel || 'פתיחת חשבון חדש')}</button>
+              </form>
+
+              <div class="security-note">הסיסמה נשמרת בשרת בצורה מוצפנת. כדי להפעיל Google אמיתי, צריך לחבר Google OAuth.</div>
+              <div class="toggle-line">נבנה את האתר דף דף. הדף הזה הוא דף הכניסה והחזרה לחשבון.</div>
+            </aside>
+          </section>
+        </main>
+
+        <script>
+          const tabs = document.querySelectorAll('[data-tab]');
+          const panels = document.querySelectorAll('[data-panel]');
+          tabs.forEach(button => {
+            button.addEventListener('click', () => {
+              const selected = button.getAttribute('data-tab');
+              tabs.forEach(tab => tab.classList.toggle('is-active', tab === button));
+              panels.forEach(panel => panel.classList.toggle('is-active', panel.getAttribute('data-panel') === selected));
+            });
+          });
+        </script>
+      </body>
+    </html>
+  `;
+}
+
+function renderAccountPage(cfg, user, flash = {}) {
+  const theme = {
+    accent: cfg.brand?.accent || '#f96302',
+    dark: cfg.brand?.dark || '#111111',
+    light: cfg.brand?.light || '#ffffff'
+  };
+  const displayName = user.full_name || user.phone || 'לקוח';
+  const flashHtml = flash.info ? `<div class="flash">${escapeHtml(flash.info)}</div>` : '';
+
+  return `
+    <!DOCTYPE html>
+    <html lang="he" dir="rtl">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>החשבון שלי</title>
+        <style>
+          :root {
+            --accent: ${escapeHtml(theme.accent)};
+            --dark: ${escapeHtml(theme.dark)};
+            --light: ${escapeHtml(theme.light)};
+          }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: linear-gradient(180deg, #fff8f2 0%, #f7f7f7 100%);
+            color: #111111;
+          }
+          .top-strip {
+            background: var(--accent);
+            color: white;
+            text-align: center;
+            padding: 12px 18px;
+            font-size: 14px;
+            font-weight: 700;
+          }
+          .page {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 28px 20px 40px;
+          }
+          .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 20px;
+          }
+          .logout {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #111111;
+            color: white;
+            text-decoration: none;
+            border-radius: 14px;
+            padding: 12px 16px;
+            font-weight: 800;
+          }
+          .hero {
+            background: white;
+            border-radius: 30px;
+            padding: 30px;
+            box-shadow: 0 20px 50px rgba(17,17,17,0.08);
+            border: 1px solid rgba(17,17,17,0.08);
+            margin-bottom: 18px;
+          }
+          .eyebrow {
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(249,99,2,0.12);
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            margin-bottom: 16px;
+          }
+          h1 {
+            margin: 0 0 10px;
+            font-size: clamp(38px, 6vw, 66px);
+            line-height: 0.95;
+            letter-spacing: -0.05em;
+          }
+          .subcopy {
+            color: #52525b;
+            font-size: 18px;
+            line-height: 1.7;
+            max-width: 52ch;
+          }
+          .flash {
+            margin-top: 18px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: #eef6ff;
+            color: #175cd3;
+            font-weight: 700;
+          }
+          .stats,
+          .tiles {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+          }
+          .stats { margin-bottom: 18px; }
+          .card {
+            background: white;
+            border-radius: 24px;
+            padding: 22px;
+            border: 1px solid rgba(17,17,17,0.08);
+            box-shadow: 0 18px 45px rgba(17,17,17,0.06);
+          }
+          .card .label {
+            font-size: 12px;
+            letter-spacing: 0.1em;
+            font-weight: 800;
+            color: #5f6368;
+            margin-bottom: 10px;
+          }
+          .card .value {
+            font-size: 26px;
+            font-weight: 800;
+            line-height: 1.15;
+          }
+          .card p {
+            margin: 10px 0 0;
+            color: #52525b;
+            line-height: 1.6;
+          }
+          .accent-card {
+            position: relative;
+            overflow: hidden;
+          }
+          .accent-card::before {
+            content: "";
+            position: absolute;
+            inset-inline-start: 0;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--accent), #ffbb80);
+          }
+          @media (max-width: 860px) {
+            .stats,
+            .tiles { grid-template-columns: 1fr; }
+            .topbar { flex-direction: column; align-items: stretch; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="top-strip">החשבון האישי שלכם, עם שמירה לחזרה מהירה.</div>
+        <main class="page">
+          <div class="topbar">
+            <div>
+              <div style="font-size:24px;font-weight:800;">${escapeHtml(cfg.brand?.name || 'Build Your Account')}</div>
+              <div style="color:#5f6368;">מצב חשבון, כניסה וחזרה לפעילות</div>
+            </div>
+            <a class="logout" href="/logout">התנתקות</a>
+          </div>
+
+          <section class="hero">
+            <div class="eyebrow">ACCOUNT STATUS</div>
+            <h1>שלום ${escapeHtml(displayName)}</h1>
+            <div class="subcopy">מכאן הלקוח חוזר שוב ושוב כדי לראות מצב חשבון, הזמנות ופעילות. בשלב הבא נחבר לכאן סטטוס אמיתי מהמערכת.</div>
+            ${flashHtml}
+          </section>
+
+          <section class="stats">
+            <article class="card accent-card">
+              <div class="label">STATUS</div>
+              <div class="value">${escapeHtml(user.account_status || 'חשבון פעיל')}</div>
+              <p>זה המקום שבו נציג בעתיד סטטוס לקוח, הזמנות, תשלומים או בקשות.</p>
+            </article>
+            <article class="card">
+              <div class="label">PHONE</div>
+              <div class="value">${escapeHtml(user.phone || 'לא זמין')}</div>
+              <p>המשתמש מזוהה לפי טלפון וסשן שמור לחזרה נוחה.</p>
+            </article>
+            <article class="card">
+              <div class="label">LAST LOGIN</div>
+              <div class="value">${escapeHtml(formatDisplayDate(user.last_login_at))}</div>
+              <p>אפשר להמשיך מכאן לדף הזמנות, סטטוס עבודה או אזור אישי מלא.</p>
+            </article>
+          </section>
+
+          <section class="tiles">
+            <article class="card accent-card">
+              <div class="label">JOINED</div>
+              <div class="value">${escapeHtml(formatDisplayDate(user.created_at))}</div>
+              <p>החשבון נשמר לחזרה עתידית בלי לפתוח משתמש מחדש.</p>
+            </article>
+            <article class="card">
+              <div class="label">LOGIN METHOD</div>
+              <div class="value">${escapeHtml((user.login_methods || ['phone']).join(' + '))}</div>
+              <p>כרגע פעיל טלפון וסיסמה. Google יופעל כשנחבר OAuth אמיתי.</p>
+            </article>
+            <article class="card">
+              <div class="label">NEXT STEP</div>
+              <div class="value">חיבור סטטוס אמיתי</div>
+              <p>בשלב הבא נחבר הזמנות, מצב חשבון, היסטוריית פעולות וקריאות שירות.</p>
+            </article>
+          </section>
+        </main>
+      </body>
+    </html>
+  `;
 }
 
 function extractNamedField(text, patterns, fallback = '') {
@@ -272,7 +1065,103 @@ function findMatchingOrders(orders, criteria = {}) {
   });
 }
 
+
 app.get('/', (req, res) => {
+  const currentUser = readCurrentSiteUser(req);
+  if (currentUser) {
+    res.redirect('/account');
+    return;
+  }
+
+  const cfg = readSiteConfig();
+  const error = normalizeText(req.query?.error || '');
+  const info = normalizeText(req.query?.info || '');
+  res.send(renderEntryPage(cfg, { error, info }));
+});
+
+app.post('/api/auth/register', (req, res) => {
+  const phone = normalizePhone(req.body?.phone || '');
+  const password = String(req.body?.password || '').trim();
+  const fullName = normalizeText(req.body?.fullName || '');
+
+  if (phone.length < 8) {
+    res.redirect('/?error=' + encodeURIComponent('צריך להזין מספר טלפון תקין.'));
+    return;
+  }
+
+  if (password.length < 6) {
+    res.redirect('/?error=' + encodeURIComponent('הסיסמה חייבת להכיל לפחות 6 תווים.'));
+    return;
+  }
+
+  const users = readSiteUsers();
+  if (users.some(user => user.phone === phone)) {
+    res.redirect('/?error=' + encodeURIComponent('כבר קיים חשבון עם מספר הטלפון הזה.'));
+    return;
+  }
+
+  const passwordRecord = createPasswordRecord(password);
+  const now = new Date().toISOString();
+  users.unshift({
+    id: 'SITEUSER-' + crypto.randomBytes(5).toString('hex'),
+    full_name: fullName,
+    phone,
+    password_salt: passwordRecord.salt,
+    password_hash: passwordRecord.hash,
+    account_status: 'חשבון נוצר, ממתין לחיבור נתונים',
+    login_methods: ['phone'],
+    created_at: now,
+    updated_at: now,
+    last_login_at: now,
+    session_token: '',
+    session_expires_at: ''
+  });
+
+  const token = issueSessionForUser(users, 0);
+  setSessionCookie(res, token);
+  res.redirect('/account?info=' + encodeURIComponent('החשבון נוצר בהצלחה.'));
+});
+
+app.post('/api/auth/login', (req, res) => {
+  const phone = normalizePhone(req.body?.phone || '');
+  const password = String(req.body?.password || '').trim();
+  const users = readSiteUsers();
+  const index = users.findIndex(user => user.phone === phone);
+
+  if (index === -1 || !verifyPassword(password, users[index])) {
+    res.redirect('/?error=' + encodeURIComponent('הטלפון או הסיסמה לא נכונים.'));
+    return;
+  }
+
+  const token = issueSessionForUser(users, index);
+  setSessionCookie(res, token);
+  res.redirect('/account?info=' + encodeURIComponent('חזרת בהצלחה לחשבון שלך.'));
+});
+
+app.post('/api/auth/google', (req, res) => {
+  res.redirect('/?info=' + encodeURIComponent('Google login מוכן בעיצוב, ויופעל סופית אחרי חיבור Google OAuth.'));
+});
+
+app.get('/account', (req, res) => {
+  const currentUser = readCurrentSiteUser(req);
+  if (!currentUser) {
+    res.redirect('/?error=' + encodeURIComponent('צריך להתחבר כדי לראות את החשבון.'));
+    return;
+  }
+
+  const cfg = readSiteConfig();
+  const info = normalizeText(req.query?.info || '');
+  res.send(renderAccountPage(cfg, currentUser, { info }));
+});
+
+app.get('/logout', (req, res) => {
+  const token = readSessionToken(req);
+  clearSessionForToken(token);
+  clearSessionCookie(res);
+  res.redirect('/?info=' + encodeURIComponent('התנתקת בהצלחה.'));
+});
+
+app.get('/ops', (req, res) => {
   const messages = readJsonArray(messagesFile);
   const tasks = readTasks(tasksFile);
   const orders = readOrders();
@@ -344,7 +1233,7 @@ app.get('/messages', (req, res) => {
     <html><body>
       <h1>Messages</h1>
       <ul>${list || '<li>No messages yet</li>'}</ul>
-      <p><a href="/">Back</a></p>
+      <p><a href="/ops">Back</a></p>
     </body></html>
   `);
 });
@@ -360,7 +1249,7 @@ app.get('/tasks', (req, res) => {
     <html><body>
       <h1>Tasks</h1>
       <ul>${list || '<li>No tasks yet</li>'}</ul>
-      <p><a href="/">Back</a></p>
+      <p><a href="/ops">Back</a></p>
     </body></html>
   `);
 });
@@ -389,7 +1278,7 @@ app.get('/orders', (req, res) => {
     <html><body>
       <h1>Orders</h1>
       ${list || '<p>No orders yet</p>'}
-      <p><a href="/">Back</a></p>
+      <p><a href="/ops">Back</a></p>
     </body></html>
   `);
 });
@@ -462,6 +1351,78 @@ app.post('/api/tasks/sync-messages', async (req, res) => {
     const result = await syncMessageTasks({
       tasksFile,
       backfill: Boolean(req.body?.backfill)
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.get('/api/agent-queue/status', (req, res) => {
+  res.json(getQueueStatus(tasksFile));
+});
+
+app.get('/api/agent-queue/config', (req, res) => {
+  res.json({ ok: true, config: readAgentQueueConfig() });
+});
+
+app.post('/api/agent-queue/config', (req, res) => {
+  const next = writeAgentQueueConfig({
+    enabled: typeof req.body?.enabled === 'boolean' ? req.body.enabled : undefined,
+    routerEnabled: typeof req.body?.routerEnabled === 'boolean' ? req.body.routerEnabled : undefined,
+    routerProvider: typeof req.body?.routerProvider === 'string' ? req.body.routerProvider : undefined,
+    routerModel: typeof req.body?.routerModel === 'string' ? req.body.routerModel : undefined,
+    workerProvider: typeof req.body?.workerProvider === 'string' ? req.body.workerProvider : undefined,
+    workerModel: typeof req.body?.workerModel === 'string' ? req.body.workerModel : undefined,
+    nightlyEnabled: typeof req.body?.nightlyEnabled === 'boolean' ? req.body.nightlyEnabled : undefined,
+    nightlyStartHourUtc: Number.isFinite(Number(req.body?.nightlyStartHourUtc)) ? Number(req.body.nightlyStartHourUtc) : undefined,
+    nightlyEndHourUtc: Number.isFinite(Number(req.body?.nightlyEndHourUtc)) ? Number(req.body.nightlyEndHourUtc) : undefined,
+    nightlyBatchSize: Number.isFinite(Number(req.body?.nightlyBatchSize)) ? Number(req.body.nightlyBatchSize) : undefined,
+    mondayMirror: typeof req.body?.mondayMirror === 'boolean' ? req.body.mondayMirror : undefined,
+    localQueueSourceOfTruth: typeof req.body?.localQueueSourceOfTruth === 'boolean' ? req.body.localQueueSourceOfTruth : undefined
+  });
+  res.json({ ok: true, config: next });
+});
+
+app.get('/api/agent-queue/tasks', (req, res) => {
+  res.json({ ok: true, tasks: listQueueTasks(tasksFile) });
+});
+
+app.post('/api/agent-queue/enqueue', async (req, res) => {
+  try {
+    const text = typeof req.body?.text === 'string' && req.body.text.trim()
+      ? req.body.text
+      : [req.body?.title || '', req.body?.description || ''].filter(Boolean).join('\n');
+
+    if (!String(text || '').trim()) {
+      res.status(400).json({ ok: false, error: 'text or title is required' });
+      return;
+    }
+
+    const result = await enqueueTask(tasksFile, text, req.body || {});
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/agent-queue/process-next', async (req, res) => {
+  try {
+    const result = await processNextQueuedTask({
+      tasksFile,
+      nightOnly: Boolean(req.body?.nightOnly)
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/agent-queue/run-night', async (req, res) => {
+  try {
+    const result = await runNightQueue({
+      tasksFile,
+      limit: Number.isFinite(Number(req.body?.limit)) ? Number(req.body.limit) : undefined
     });
     res.json(result);
   } catch (error) {
@@ -672,6 +1633,7 @@ Object.entries(cfg.pages || {}).forEach(([slug, page]) => {
 const port = Number(process.env.PORT || 3000);
 let backgroundOrderSyncRunning = false;
 let backgroundTaskSyncRunning = false;
+let backgroundNightQueueRunning = false;
 
 async function runBackgroundOrderSync() {
   if (backgroundOrderSyncRunning) return;
@@ -697,10 +1659,24 @@ async function runBackgroundTaskSync() {
   }
 }
 
+async function runBackgroundNightQueue() {
+  if (backgroundNightQueueRunning) return;
+  backgroundNightQueueRunning = true;
+  try {
+    await runNightQueue({ tasksFile });
+  } catch (error) {
+    console.error('Night queue run failed:', error.message);
+  } finally {
+    backgroundNightQueueRunning = false;
+  }
+}
+
 app.listen(port, () => {
   console.log(`Dashboard running on port ${port}`);
   setTimeout(runBackgroundOrderSync, 5000);
   setTimeout(runBackgroundTaskSync, 7000);
+  setTimeout(runBackgroundNightQueue, 9000);
   setInterval(runBackgroundOrderSync, 45000);
   setInterval(runBackgroundTaskSync, 30000);
+  setInterval(runBackgroundNightQueue, 300000);
 });

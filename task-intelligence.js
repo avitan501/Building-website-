@@ -363,7 +363,19 @@ function inferTaskFromText(text, overrides = {}) {
     whatsapp_number: structured.whatsapp_number,
     amount: structured.amount,
     next_step: structured.next_step,
-    tags: structured.tags
+    tags: structured.tags,
+    queue_enabled: typeof overrides.queue_enabled === 'boolean'
+      ? overrides.queue_enabled
+      : typeof overrides.queueEnabled === 'boolean'
+        ? overrides.queueEnabled
+        : undefined,
+    queue_status: overrides.queue_status || overrides.queueStatus || '',
+    queue_run_mode: overrides.queue_run_mode || overrides.queueRunMode || '',
+    queue_run_after: overrides.queue_run_after || overrides.queueRunAfter || '',
+    queue_brain: overrides.queue_brain || overrides.queueBrain || '',
+    queue_plan: overrides.queue_plan || overrides.queuePlan || '',
+    queue_result: overrides.queue_result || overrides.queueResult || '',
+    queue_error: overrides.queue_error || overrides.queueError || ''
   };
 
   task.status = inferSuggestedStatus(task);
@@ -455,6 +467,24 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
     monday_group_id: input.monday_group_id || input.mondayGroupId || base.monday_group_id || '',
     monday_board_name: input.monday_board_name || input.mondayBoardName || base.monday_board_name || '',
     monday_url: input.monday_url || input.mondayUrl || base.monday_url || '',
+    queue_enabled: typeof input.queue_enabled === 'boolean'
+      ? input.queue_enabled
+      : typeof input.queueEnabled === 'boolean'
+        ? input.queueEnabled
+        : typeof base.queue_enabled === 'boolean'
+          ? base.queue_enabled
+          : false,
+    queue_status: normalizeTaskText(input.queue_status || input.queueStatus || base.queue_status || ''),
+    queue_run_mode: normalizeTaskText(input.queue_run_mode || input.queueRunMode || base.queue_run_mode || ''),
+    queue_run_after: normalizeTaskText(input.queue_run_after || input.queueRunAfter || base.queue_run_after || ''),
+    queue_locked_at: normalizeTaskText(input.queue_locked_at || input.queueLockedAt || base.queue_locked_at || ''),
+    queue_last_run_at: normalizeTaskText(input.queue_last_run_at || input.queueLastRunAt || base.queue_last_run_at || ''),
+    queue_brain: normalizeTaskText(input.queue_brain || input.queueBrain || base.queue_brain || ''),
+    queue_router_model: normalizeTaskText(input.queue_router_model || input.queueRouterModel || base.queue_router_model || ''),
+    queue_worker_model: normalizeTaskText(input.queue_worker_model || input.queueWorkerModel || base.queue_worker_model || ''),
+    queue_plan: normalizeTaskText(input.queue_plan || input.queuePlan || base.queue_plan || ''),
+    queue_result: normalizeTaskText(input.queue_result || input.queueResult || base.queue_result || ''),
+    queue_error: normalizeTaskText(input.queue_error || input.queueError || base.queue_error || ''),
     created_at: base.created_at || input.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
@@ -560,7 +590,13 @@ async function ensureBoardColumns(board, task) {
     { title: 'Conversation History', type: 'long_text', needed: true },
     { title: 'Related Keys', type: 'long_text', needed: true },
     { title: 'Last Message At', type: 'text', needed: true },
-    { title: 'Source Chat', type: 'text', needed: true }
+    { title: 'Source Chat', type: 'text', needed: true },
+    { title: 'Queue Status', type: 'text', needed: true },
+    { title: 'Queue Mode', type: 'text', needed: true },
+    { title: 'Brain', type: 'text', needed: true },
+    { title: 'Run After', type: 'text', needed: true },
+    { title: 'Queue Error', type: 'long_text', needed: true },
+    { title: 'Queue Result', type: 'long_text', needed: true }
   ];
 
   for (const definition of definitions) {
@@ -622,6 +658,12 @@ function buildColumnValues(board, task) {
   const relatedKeysColumn = findBoardColumn(columns, ['related keys', 'keys', 'קישורים', 'מפתחות'], ['text', 'long_text']);
   const lastMessageAtColumn = findBoardColumn(columns, ['last message at', 'last message', 'updated at', 'הודעה אחרונה'], ['text', 'long_text']);
   const sourceChatColumn = findBoardColumn(columns, ['source chat', 'chat', 'צאט', 'צ׳אט'], ['text', 'long_text']);
+  const queueStatusColumn = findBoardColumn(columns, ['queue status', 'execution status', 'תור'], ['text', 'long_text', 'status']);
+  const queueModeColumn = findBoardColumn(columns, ['queue mode', 'run mode', 'mode', 'מצב'], ['text', 'long_text']);
+  const brainColumn = findBoardColumn(columns, ['brain', 'worker', 'מוח'], ['text', 'long_text']);
+  const runAfterColumn = findBoardColumn(columns, ['run after', 'start after', 'after', 'אחרי'], ['text', 'long_text']);
+  const queueErrorColumn = findBoardColumn(columns, ['queue error', 'error', 'שגיאה'], ['text', 'long_text']);
+  const queueResultColumn = findBoardColumn(columns, ['queue result', 'result', 'output', 'תוצאה'], ['text', 'long_text']);
 
   setColumnValue(dateColumn, task.due_date);
   setColumnValue(statusColumn, task.status || 'open');
@@ -641,6 +683,12 @@ function buildColumnValues(board, task) {
   setColumnValue(relatedKeysColumn, Array.isArray(task.related_keys) ? task.related_keys.join(', ') : '');
   setColumnValue(lastMessageAtColumn, task.last_message_at);
   setColumnValue(sourceChatColumn, task.source_chat_id || task.source_contact);
+  setColumnValue(queueStatusColumn, task.queue_status || (task.queue_enabled ? 'queued' : ''));
+  setColumnValue(queueModeColumn, task.queue_run_mode);
+  setColumnValue(brainColumn, task.queue_brain);
+  setColumnValue(runAfterColumn, task.queue_run_after);
+  setColumnValue(queueErrorColumn, task.queue_error);
+  setColumnValue(queueResultColumn, task.queue_result);
 
   return Object.keys(values).length ? values : null;
 }
@@ -665,7 +713,17 @@ function buildMondayUpdateBody(task) {
   if (Array.isArray(task.related_keys) && task.related_keys.length) lines.push(`Related keys: ${task.related_keys.join(', ')}`);
   if (task.last_message_at) lines.push(`Last message at: ${task.last_message_at}`);
   if (task.source_chat_id || task.source_contact) lines.push(`Source chat: ${task.source_chat_id || task.source_contact}`);
+  if (task.queue_enabled) {
+    lines.push(`Queue status: ${task.queue_status || 'queued'}`);
+    if (task.queue_run_mode) lines.push(`Queue mode: ${task.queue_run_mode}`);
+    if (task.queue_brain) lines.push(`Brain: ${task.queue_brain}`);
+    if (task.queue_run_after) lines.push(`Run after: ${task.queue_run_after}`);
+    if (task.queue_last_run_at) lines.push(`Last run at: ${task.queue_last_run_at}`);
+  }
   if (task.description) lines.push('', 'Description:', task.description);
+  if (task.queue_plan) lines.push('', 'Queue plan:', task.queue_plan);
+  if (task.queue_result) lines.push('', 'Queue result:', task.queue_result);
+  if (task.queue_error) lines.push('', 'Queue error:', task.queue_error);
 
   const latestHistory = Array.isArray(task.conversation_history) && task.conversation_history.length
     ? task.conversation_history[task.conversation_history.length - 1]

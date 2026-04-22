@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "routerEnabled": true,
+  "routerProvider": "openai",
+  "routerModel": "gpt-4.1-mini",
+  "workerProvider": "openai",
+  "workerModel": "gpt-4.1",
+  "nightlyEnabled": true,
+  "nightlyStartHourUtc": 1,
+  "nightlyEndHourUtc": 6,
+  "nightlyBatchSize": 3,
+  "mondayMirror": true,
+  "localQueueSourceOfTruth": true
+}

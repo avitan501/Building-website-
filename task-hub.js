@@ -74,6 +74,8 @@ function summarizeTask(task = {}) {
     next_step: task.next_step || '',
     due_date: task.due_date || '',
     task_type: task.task_type || 'task',
+    capture_mode: task.capture_mode || ((task.source || '') === 'task-hub' ? 'explicit-task' : 'conversation-derived'),
+    source_text: task.source_text || '',
     task_notes: task.task_notes || '',
     last_contact_at: task.last_contact_at || '',
     last_message_at: task.last_message_at || '',
@@ -490,6 +492,11 @@ function renderTaskHubPage() {
             <option value="remember">משימות לזכור / לשמור</option>
             <option value="task">כללי</option>
           </select>
+          <select id="captureFilter">
+            <option value="all">כל דרכי הכניסה</option>
+            <option value="explicit-task">נוסף כמשימה מפורשת</option>
+            <option value="conversation-derived">נלקח מתוך שיחה</option>
+          </select>
         </div>
         <div class="tiny" style="margin-top:8px;">המשימות הפעילות עולות אוטומטית למעלה.</div>
       </div>
@@ -500,7 +507,7 @@ function renderTaskHubPage() {
     </div>
 
     <script>
-      const state = { tasks: [], filter: '', compactMode: true, filters: { status: 'active', priority: 'all', contacts: 'all', type: 'all' } };
+      const state = { tasks: [], filter: '', compactMode: true, filters: { status: 'active', priority: 'all', contacts: 'all', type: 'all', capture: 'all' } };
 
       function escapeHtml(value) {
         return String(value == null ? '' : value)
@@ -600,6 +607,7 @@ function renderTaskHubPage() {
             const priorityFilter = state.filters.priority;
             const contactFilter = state.filters.contacts;
             const typeFilter = state.filters.type;
+            const captureFilter = state.filters.capture;
             if (state.filter) {
               const searchable = [task.title, task.description, task.next_step, task.task_notes]
                 .concat((task.contacts || []).map(function(contact) {
@@ -617,6 +625,7 @@ function renderTaskHubPage() {
             if (contactFilter === 'pending' && !(task.stats && task.stats.pending > 0)) return false;
             if (contactFilter === 'contacted' && !(task.stats && task.stats.contacted > 0)) return false;
             if (typeFilter !== 'all' && String(task.task_type || 'task') !== typeFilter) return false;
+            if (captureFilter !== 'all' && String(task.capture_mode || 'conversation-derived') !== captureFilter) return false;
             return true;
           });
       }
@@ -736,10 +745,12 @@ function renderTaskHubPage() {
           + '<span class="pill">' + escapeHtml(task.status) + '</span>'
           + '<span class="pill">' + escapeHtml(task.priority) + '</span>'
           + '<span class="pill">' + escapeHtml(task.task_type || 'task') + '</span>'
+          + '<span class="pill">' + escapeHtml(task.capture_mode || 'conversation-derived') + '</span>'
           + '<span class="pill ' + (task.stats && task.stats.pending ? 'warn' : 'good') + '">' + escapeHtml((task.stats && task.stats.contacts) || 0) + ' contacts</span>'
           + (task.monday_url ? '<a class="pill" href="' + escapeHtml(task.monday_url) + '" target="_blank" rel="noreferrer">Monday</a>' : '')
           + '</div></div>'
           + (task.description ? renderExpandableText(task.description, 220, 'תיאור מלא') : '')
+          + ((task.capture_mode === 'conversation-derived' && task.source_text) ? renderExpandableText(task.source_text, 240, 'שיחה מלאה') : '')
           + (task.task_notes ? renderExpandableText('Notes: ' + task.task_notes, 160, 'הערות מלאות') : '')
           + '<div class="row">'
           + (task.next_step ? '<span class="pill warn">Next: ' + escapeHtml(task.next_step) + '</span>' : '')
@@ -833,6 +844,11 @@ function renderTaskHubPage() {
 
       document.getElementById('typeFilter').addEventListener('change', function(event) {
         state.filters.type = String(event.target.value || 'all');
+        render();
+      });
+
+      document.getElementById('captureFilter').addEventListener('change', function(event) {
+        state.filters.capture = String(event.target.value || 'all');
         render();
       });
 

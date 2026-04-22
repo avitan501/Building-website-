@@ -25,6 +25,9 @@ Set one of these environment variables before starting `/root/mysite`:
 Example template:
 - `/root/mysite/.env.kimi.example`
 
+Runtime loading:
+- `/root/mysite/start-server.sh` now auto-loads `/root/mysite/.env` before starting the app.
+
 ## Config file
 - `/root/mysite/data/kimi_coder_config.json`
 

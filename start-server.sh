@@ -9,6 +9,16 @@ LOG_FILE="$RUN_DIR/server.log"
 mkdir -p "$RUN_DIR"
 cd "$APP_DIR"
 
+if systemctl --user list-unit-files 2>/dev/null | grep -q '^mysite.service'; then
+  if systemctl --user is-active --quiet mysite.service; then
+    echo "already-running:mysite.service"
+    exit 0
+  fi
+  systemctl --user start mysite.service
+  echo "started:mysite.service"
+  exit 0
+fi
+
 if [[ -f "$APP_DIR/.env" ]]; then
   set -a
   # shellcheck disable=SC1091

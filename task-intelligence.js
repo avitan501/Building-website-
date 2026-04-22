@@ -67,6 +67,68 @@ function normalizeTags(value) {
     .filter(Boolean))];
 }
 
+function normalizeComparableText(value) {
+  return normalizeTitle(value).toLowerCase();
+}
+
+function normalizeConversationEntry(entry = {}) {
+  return {
+    timestamp: entry.timestamp || new Date().toISOString(),
+    source: String(entry.source || '').trim(),
+    chat_id: String(entry.chat_id || entry.chatId || '').trim(),
+    contact: String(entry.contact || entry.from || '').trim(),
+    body: normalizeTaskText(entry.body || '')
+  };
+}
+
+function mergeConversationHistory(baseHistory = [], incomingEntries = []) {
+  const normalized = [
+    ...baseHistory,
+    ...incomingEntries
+      .map(entry => normalizeConversationEntry(entry))
+      .filter(entry => entry.body)
+  ];
+
+  const seen = new Set();
+  const result = [];
+  for (const entry of normalized) {
+    const key = JSON.stringify([entry.timestamp, entry.source, entry.chat_id, entry.contact, entry.body]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(entry);
+  }
+
+  return result.slice(-30);
+}
+
+function buildRelatedKeys(task = {}) {
+  return normalizeTags([
+    ...(Array.isArray(task.tags) ? task.tags : []),
+    task.whatsapp_number ? `phone:${normalizePhone(task.whatsapp_number)}` : '',
+    task.customer_name ? `customer:${normalizeComparableText(task.customer_name)}` : '',
+    task.supplier_name ? `supplier:${normalizeComparableText(task.supplier_name)}` : '',
+    task.source_chat_id ? `chat:${String(task.source_chat_id).trim()}` : '',
+    task.task_type ? `type:${normalizeComparableText(task.task_type)}` : '',
+    task.category ? `category:${normalizeComparableText(task.category)}` : ''
+  ]);
+}
+
+function formatConversationHistory(history = []) {
+  return history
+    .slice(-20)
+    .map(entry => {
+      const sourceBits = [entry.source, entry.chat_id || entry.contact].filter(Boolean).join(' ');
+      return `[${entry.timestamp}]${sourceBits ? ` ${sourceBits}` : ''}\n${entry.body}`.trim();
+    })
+    .join('\n\n')
+    .trim();
+}
+
+function extractTaskIdReference(text) {
+  const match = String(text || '').match(/\bTASK-\d+\b/i);
+  return match ? match[0].toUpperCase() : '';
+}
+
 function resolveMondayConfig() {
   const env = {
     MONDAY_API_TOKEN: process.env.MONDAY_API_TOKEN || '',
@@ -338,7 +400,35 @@ function ensureTaskIds(tasks) {
 }
 
 function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
-  return {
+  const incomingEntries = [];
+  if ((!Array.isArray(base.conversation_history) || !base.conversation_history.length) && (base.description || base.source_text)) {
+    incomingEntries.push({
+      timestamp: base.last_message_at || base.updated_at || base.created_at || new Date().toISOString(),
+      source: base.source || input.source || 'manual',
+      chat_id: base.source_chat_id || '',
+      contact: base.source_contact || '',
+      body: base.description || base.source_text || ''
+    });
+  }
+
+  if (typeof input.conversation_entry === 'object' && input.conversation_entry) {
+    incomingEntries.push(input.conversation_entry);
+  } else if (!Array.isArray(base.conversation_history) || !base.conversation_history.length) {
+    incomingEntries.push({
+      timestamp: input.last_message_at || input.updated_at || new Date().toISOString(),
+      source: input.source || base.source || 'manual',
+      chat_id: input.source_chat_id || input.sourceChatId || base.source_chat_id || '',
+      contact: input.source_contact || input.sourceContact || base.source_contact || '',
+      body: input.description || input.source_text || input.sourceText || base.description || base.source_text || ''
+    });
+  }
+
+  const conversation_history = mergeConversationHistory(
+    Array.isArray(base.conversation_history) ? base.conversation_history : [],
+    incomingEntries
+  );
+
+  const record = {
     id: input.id || base.id || nextTaskId(allTasks),
     title: normalizeTitle(input.title || base.title || 'Untitled task'),
     description: normalizeTaskText(input.description || base.description || ''),
@@ -355,6 +445,11 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
     amount: normalizeTaskText(input.amount || base.amount || ''),
     next_step: normalizeTaskText(input.next_step || input.nextStep || base.next_step || ''),
     tags: normalizeTags(input.tags || base.tags || []),
+    source_chat_id: normalizeTaskText(input.source_chat_id || input.sourceChatId || base.source_chat_id || ''),
+    source_contact: normalizeTaskText(input.source_contact || input.sourceContact || base.source_contact || ''),
+    conversation_history,
+    last_message_at: conversation_history.length ? conversation_history[conversation_history.length - 1].timestamp : (input.last_message_at || base.last_message_at || ''),
+    related_keys: normalizeTags(input.related_keys || input.relatedKeys || base.related_keys || []),
     monday_item_id: input.monday_item_id || input.mondayItemId || base.monday_item_id || '',
     monday_board_id: input.monday_board_id || input.mondayBoardId || base.monday_board_id || '',
     monday_group_id: input.monday_group_id || input.mondayGroupId || base.monday_group_id || '',
@@ -363,6 +458,9 @@ function normalizeTaskRecord(input = {}, base = {}, allTasks = []) {
     created_at: base.created_at || input.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
+
+  record.related_keys = buildRelatedKeys(record);
+  return record;
 }
 
 function readTasks(tasksFile) {
@@ -377,10 +475,23 @@ function writeTasks(tasksFile, tasks) {
 }
 
 function findDuplicateTask(tasks, taskCandidate) {
-  const normalizedTitle = normalizeTitle(taskCandidate.title).toLowerCase();
+  const normalizedTitle = normalizeComparableText(taskCandidate.title);
+  const referencedTaskId = extractTaskIdReference(`${taskCandidate.title}\n${taskCandidate.description}\n${taskCandidate.source_text}`);
+  const candidateKeys = new Set(buildRelatedKeys(taskCandidate));
+
   return tasks.find(task => {
     if (String(task.status || '').toLowerCase() === 'done') return false;
-    return normalizeTitle(task.title).toLowerCase() === normalizedTitle;
+    if (referencedTaskId && task.id === referencedTaskId) return true;
+    if (normalizeComparableText(task.title) === normalizedTitle) return true;
+    if (taskCandidate.whatsapp_number && normalizePhone(task.whatsapp_number) === normalizePhone(taskCandidate.whatsapp_number)) return true;
+    if (taskCandidate.customer_name && normalizeComparableText(task.customer_name) === normalizeComparableText(taskCandidate.customer_name) && task.category === taskCandidate.category) return true;
+
+    const existingKeys = new Set(buildRelatedKeys(task));
+    let overlap = 0;
+    for (const key of candidateKeys) {
+      if (existingKeys.has(key)) overlap += 1;
+    }
+    return overlap >= 2;
   }) || null;
 }
 
@@ -442,13 +553,17 @@ async function ensureBoardColumns(board, task) {
     { title: 'Source', type: 'text', needed: true },
     { title: 'Task ID', type: 'text', needed: true },
     { title: 'Description', type: 'long_text', needed: true },
-    { title: 'Task Type', type: 'text', needed: Boolean(task.task_type) },
-    { title: 'Customer', type: 'text', needed: Boolean(task.customer_name) },
-    { title: 'Supplier', type: 'text', needed: Boolean(task.supplier_name) },
-    { title: 'Phone', type: 'text', needed: Boolean(task.whatsapp_number) },
-    { title: 'Amount', type: 'text', needed: Boolean(task.amount) },
-    { title: 'Next Step', type: 'long_text', needed: Boolean(task.next_step) },
-    { title: 'Tags', type: 'text', needed: Array.isArray(task.tags) && task.tags.length > 0 }
+    { title: 'Task Type', type: 'text', needed: true },
+    { title: 'Customer', type: 'text', needed: true },
+    { title: 'Supplier', type: 'text', needed: true },
+    { title: 'Phone', type: 'text', needed: true },
+    { title: 'Amount', type: 'text', needed: true },
+    { title: 'Next Step', type: 'long_text', needed: true },
+    { title: 'Tags', type: 'text', needed: true },
+    { title: 'Conversation History', type: 'long_text', needed: true },
+    { title: 'Related Keys', type: 'long_text', needed: true },
+    { title: 'Last Message At', type: 'text', needed: true },
+    { title: 'Source Chat', type: 'text', needed: true }
   ];
 
   for (const definition of definitions) {
@@ -488,7 +603,8 @@ function buildColumnValues(board, task) {
       values[column.id] = { label: toMondayStatusLabel(rawValue) };
       return;
     }
-    values[column.id] = String(rawValue).slice(0, 1900);
+    const maxLength = column.type === 'long_text' ? 8000 : 1900;
+    values[column.id] = String(rawValue).slice(0, maxLength);
   };
 
   const dateColumn = findBoardColumn(columns, ['date', 'due', 'deadline'], ['date']) || columns.find(column => column.type === 'date');
@@ -505,6 +621,10 @@ function buildColumnValues(board, task) {
   const amountColumn = findBoardColumn(columns, ['amount', 'price', 'budget', 'סכום', 'מחיר'], ['text', 'long_text']);
   const nextStepColumn = findBoardColumn(columns, ['next step', 'next action', 'השלב הבא', 'צעד הבא'], ['text', 'long_text']);
   const tagsColumn = findBoardColumn(columns, ['tags', 'labels', 'תגיות'], ['text', 'long_text']);
+  const historyColumn = findBoardColumn(columns, ['conversation history', 'history', 'שיחה', 'היסטוריה'], ['text', 'long_text']);
+  const relatedKeysColumn = findBoardColumn(columns, ['related keys', 'keys', 'קישורים', 'מפתחות'], ['text', 'long_text']);
+  const lastMessageAtColumn = findBoardColumn(columns, ['last message at', 'last message', 'updated at', 'הודעה אחרונה'], ['text', 'long_text']);
+  const sourceChatColumn = findBoardColumn(columns, ['source chat', 'chat', 'צאט', 'צ׳אט'], ['text', 'long_text']);
 
   setColumnValue(dateColumn, task.due_date);
   setColumnValue(statusColumn, task.status || 'open');
@@ -520,6 +640,10 @@ function buildColumnValues(board, task) {
   setColumnValue(amountColumn, task.amount);
   setColumnValue(nextStepColumn, task.next_step);
   setColumnValue(tagsColumn, Array.isArray(task.tags) ? task.tags.join(', ') : '');
+  setColumnValue(historyColumn, formatConversationHistory(task.conversation_history));
+  setColumnValue(relatedKeysColumn, Array.isArray(task.related_keys) ? task.related_keys.join(', ') : '');
+  setColumnValue(lastMessageAtColumn, task.last_message_at);
+  setColumnValue(sourceChatColumn, task.source_chat_id || task.source_contact);
 
   return Object.keys(values).length ? values : null;
 }
@@ -541,24 +665,99 @@ function buildMondayUpdateBody(task) {
   if (task.amount) lines.push(`Amount: ${task.amount}`);
   if (task.next_step) lines.push(`Next step: ${task.next_step}`);
   if (Array.isArray(task.tags) && task.tags.length) lines.push(`Tags: ${task.tags.join(', ')}`);
+  if (Array.isArray(task.related_keys) && task.related_keys.length) lines.push(`Related keys: ${task.related_keys.join(', ')}`);
+  if (task.last_message_at) lines.push(`Last message at: ${task.last_message_at}`);
+  if (task.source_chat_id || task.source_contact) lines.push(`Source chat: ${task.source_chat_id || task.source_contact}`);
   if (task.description) lines.push('', 'Description:', task.description);
-  if (task.source_text && task.source_text !== task.description) lines.push('', 'Source text:', task.source_text);
+
+  const latestHistory = Array.isArray(task.conversation_history) && task.conversation_history.length
+    ? task.conversation_history[task.conversation_history.length - 1]
+    : null;
+  if (latestHistory?.body) {
+    lines.push('', 'Latest message:', `[${latestHistory.timestamp}] ${latestHistory.body}`);
+  } else if (task.source_text && task.source_text !== task.description) {
+    lines.push('', 'Source text:', task.source_text);
+  }
 
   return lines.join('\n').trim();
 }
 
-async function syncTaskToMonday(task) {
+async function ensureTaskBoardSchema(sampleTask = {}) {
   const boardInfo = await getMondayBoard();
   if (!boardInfo.configured) {
-    return { skipped: true, reason: 'missing monday configuration' };
+    return { ok: false, configured: false, reason: 'missing monday configuration', sourceFile: boardInfo.sourceFile };
   }
   if (!boardInfo.ok || !boardInfo.board) {
-    return { skipped: true, reason: 'monday board not found' };
+    return { ok: false, configured: true, reason: 'monday board not found', sourceFile: boardInfo.sourceFile };
   }
 
-  const board = await ensureBoardColumns(boardInfo.board, task);
+  const schemaTask = normalizeTaskRecord({
+    title: 'Schema bootstrap',
+    description: '',
+    source: 'system',
+    ...sampleTask
+  }, {}, []);
+  const board = await ensureBoardColumns(boardInfo.board, schemaTask);
+  return {
+    ok: true,
+    configured: true,
+    sourceFile: boardInfo.sourceFile,
+    board
+  };
+}
+
+async function createMondayItemUpdate(itemId, body) {
+  if (!body) return null;
+  const updateMutation = `
+    mutation ($itemId: ID!, $body: String!) {
+      create_update(item_id: $itemId, body: $body) {
+        id
+      }
+    }
+  `;
+  const data = await mondayRequest(updateMutation, {
+    itemId: String(itemId),
+    body
+  });
+  return data?.create_update || null;
+}
+
+async function syncTaskToMonday(task) {
+  const schema = await ensureTaskBoardSchema(task);
+  if (!schema.ok || !schema.board) {
+    return { skipped: true, reason: schema.reason || 'monday board not found' };
+  }
+
+  const board = schema.board;
   const groupId = chooseGroup(board, task);
   const columnValues = buildColumnValues(board, task);
+  const updateBody = buildMondayUpdateBody(task);
+
+  if (task.monday_item_id) {
+    if (columnValues) {
+      const updateColumnsMutation = `
+        mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
+          change_multiple_column_values(board_id: $boardId, item_id: $itemId, column_values: $columnValues) {
+            id
+          }
+        }
+      `;
+      await mondayRequest(updateColumnsMutation, {
+        boardId: String(board.id),
+        itemId: String(task.monday_item_id),
+        columnValues: JSON.stringify(columnValues)
+      });
+    }
+    await createMondayItemUpdate(task.monday_item_id, updateBody);
+    return {
+      ok: true,
+      itemId: String(task.monday_item_id),
+      boardId: String(board.id),
+      boardName: board.name,
+      groupId: groupId || '',
+      boardUrl: board.url || ''
+    };
+  }
 
   const createMutation = `
     mutation ($boardId: ID!, $groupId: String, $itemName: String!, $columnValues: JSON) {
@@ -577,21 +776,7 @@ async function syncTaskToMonday(task) {
 
   const itemId = createData?.create_item?.id;
   if (!itemId) throw new Error('monday did not return item id');
-
-  const updateBody = buildMondayUpdateBody(task);
-  if (updateBody) {
-    const updateMutation = `
-      mutation ($itemId: ID!, $body: String!) {
-        create_update(item_id: $itemId, body: $body) {
-          id
-        }
-      }
-    `;
-    await mondayRequest(updateMutation, {
-      itemId: String(itemId),
-      body: updateBody
-    });
-  }
+  await createMondayItemUpdate(itemId, updateBody);
 
   return {
     ok: true,
@@ -606,12 +791,62 @@ async function syncTaskToMonday(task) {
 async function createTaskFromText(tasksFile, text, overrides = {}) {
   const tasks = readTasks(tasksFile);
   const inferred = inferTaskFromText(text, overrides);
+  const incomingConversationEntry = overrides.conversation_entry || {
+    timestamp: overrides.timestamp || new Date().toISOString(),
+    source: overrides.source || 'chat',
+    chat_id: overrides.source_chat_id || overrides.sourceChatId || '',
+    contact: overrides.source_contact || overrides.sourceContact || '',
+    body: normalizeTaskText(overrides.description || overrides.source_text || overrides.sourceText || text)
+  };
+
   const duplicate = findDuplicateTask(tasks, inferred);
   if (duplicate) {
-    return { ok: true, deduped: true, task: duplicate, monday: null };
+    const index = tasks.findIndex(task => task.id === duplicate.id);
+    const mergedInput = {
+      ...duplicate,
+      ...inferred,
+      title: duplicate.title || inferred.title,
+      description: inferred.description || duplicate.description,
+      source_text: inferred.source_text || duplicate.source_text,
+      customer_name: inferred.customer_name || duplicate.customer_name,
+      supplier_name: inferred.supplier_name || duplicate.supplier_name,
+      whatsapp_number: inferred.whatsapp_number || duplicate.whatsapp_number,
+      amount: inferred.amount || duplicate.amount,
+      next_step: inferred.next_step || duplicate.next_step,
+      tags: normalizeTags([...(duplicate.tags || []), ...(inferred.tags || [])]),
+      source_chat_id: overrides.source_chat_id || overrides.sourceChatId || duplicate.source_chat_id,
+      source_contact: overrides.source_contact || overrides.sourceContact || duplicate.source_contact,
+      conversation_entry: incomingConversationEntry
+    };
+
+    tasks[index] = normalizeTaskRecord(mergedInput, duplicate, tasks);
+    writeTasks(tasksFile, tasks);
+
+    let monday = null;
+    try {
+      monday = await syncTaskToMonday(tasks[index]);
+      if (monday?.ok) {
+        tasks[index].monday_item_id = monday.itemId;
+        tasks[index].monday_board_id = monday.boardId;
+        tasks[index].monday_board_name = monday.boardName;
+        tasks[index].monday_group_id = monday.groupId;
+        tasks[index].monday_url = monday.boardUrl;
+        tasks[index].updated_at = new Date().toISOString();
+        writeTasks(tasksFile, tasks);
+      }
+    } catch (error) {
+      monday = { ok: false, error: error.message };
+    }
+
+    return { ok: true, deduped: true, task: tasks[index], monday };
   }
 
-  const task = normalizeTaskRecord(inferred, {}, tasks);
+  const task = normalizeTaskRecord({
+    ...inferred,
+    source_chat_id: overrides.source_chat_id || overrides.sourceChatId || '',
+    source_contact: overrides.source_contact || overrides.sourceContact || '',
+    conversation_entry: incomingConversationEntry
+  }, {}, tasks);
   tasks.unshift(task);
   writeTasks(tasksFile, tasks);
 
@@ -659,6 +894,7 @@ module.exports = {
   createTaskFromText,
   syncExistingTaskToMonday,
   getMondayBoard,
+  ensureTaskBoardSchema,
   inferTaskFromText,
   normalizeTaskRecord
 };

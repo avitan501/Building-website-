@@ -104,7 +104,16 @@ function buildTaskOverrides(entry) {
     source: entry.source,
     ...(singleLineTitle ? { title: singleLineTitle } : {}),
     description: cleanBody,
-    source_text: buildTaskText(entry)
+    source_text: buildTaskText(entry),
+    source_chat_id: entry.chatId || '',
+    source_contact: entry.from || '',
+    conversation_entry: {
+      timestamp: entry.timestamp || new Date().toISOString(),
+      source: entry.source,
+      chat_id: entry.chatId || '',
+      contact: entry.from || '',
+      body: cleanBody
+    }
   };
 }
 

@@ -483,6 +483,10 @@ app.post('/api/website-coder/config', (req, res) => {
     provider: typeof req.body?.provider === 'string' ? req.body.provider : undefined,
     model: typeof req.body?.model === 'string' ? req.body.model : undefined,
     baseUrl: typeof req.body?.baseUrl === 'string' ? req.body.baseUrl : undefined,
+    fallbackEnabled: typeof req.body?.fallbackEnabled === 'boolean' ? req.body.fallbackEnabled : undefined,
+    fallbackProvider: typeof req.body?.fallbackProvider === 'string' ? req.body.fallbackProvider : undefined,
+    fallbackModel: typeof req.body?.fallbackModel === 'string' ? req.body.fallbackModel : undefined,
+    fallbackBaseUrl: typeof req.body?.fallbackBaseUrl === 'string' ? req.body.fallbackBaseUrl : undefined,
     defaultMode: typeof req.body?.defaultMode === 'string' ? req.body.defaultMode : undefined,
     defaultLanguage: typeof req.body?.defaultLanguage === 'string' ? req.body.defaultLanguage : undefined,
     defaultStack: typeof req.body?.defaultStack === 'string' ? req.body.defaultStack : undefined

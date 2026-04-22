@@ -3,6 +3,10 @@
   "provider": "kimi",
   "model": "moonshot-v1-8k",
   "baseUrl": "https://api.moonshot.ai/v1",
+  "fallbackEnabled": true,
+  "fallbackProvider": "openai",
+  "fallbackModel": "gpt-4.1-mini",
+  "fallbackBaseUrl": "https://api.openai.com/v1",
   "defaultMode": "recommendations",
   "defaultLanguage": "en",
   "defaultStack": "html-css-js"

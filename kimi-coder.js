@@ -9,6 +9,10 @@ function defaultConfig() {
     provider: 'kimi',
     model: 'moonshot-v1-8k',
     baseUrl: 'https://api.moonshot.ai/v1',
+    fallbackEnabled: true,
+    fallbackProvider: 'openai',
+    fallbackModel: 'gpt-4.1-mini',
+    fallbackBaseUrl: 'https://api.openai.com/v1',
     defaultMode: 'recommendations',
     defaultLanguage: 'en',
     defaultStack: 'html-css-js'
@@ -35,27 +39,54 @@ function writeConfig(patch = {}) {
   return next;
 }
 
+function getProviderState(provider, config = readConfig()) {
+  if (provider === 'openai') {
+    return {
+      provider,
+      apiKey: process.env.OPENAI_API_KEY || '',
+      model: config.fallbackModel || 'gpt-4.1-mini',
+      baseUrl: config.fallbackBaseUrl || 'https://api.openai.com/v1'
+    };
+  }
+
+  return {
+    provider: 'kimi',
+    apiKey: process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY || '',
+    model: config.model,
+    baseUrl: config.baseUrl
+  };
+}
+
 function getApiKey() {
-  return process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY || '';
+  return getProviderState('kimi').apiKey;
 }
 
 function getStatus() {
   const config = readConfig();
-  const apiKey = getApiKey();
+  const primary = getProviderState(config.provider || 'kimi', config);
+  const fallback = getProviderState(config.fallbackProvider || 'openai', config);
   return {
     ok: true,
     lane: 'kimi-website-coder',
     enabled: Boolean(config.enabled),
-    configured: Boolean(apiKey),
-    provider: config.provider,
-    model: config.model,
-    baseUrl: config.baseUrl,
+    configured: Boolean(primary.apiKey),
+    provider: primary.provider,
+    model: primary.model,
+    baseUrl: primary.baseUrl,
+    fallbackEnabled: Boolean(config.fallbackEnabled),
+    fallbackProvider: fallback.provider,
+    fallbackConfigured: Boolean(fallback.apiKey),
+    fallbackModel: fallback.model,
+    fallbackBaseUrl: fallback.baseUrl,
     defaultMode: config.defaultMode,
     defaultLanguage: config.defaultLanguage,
     defaultStack: config.defaultStack,
-    note: apiKey
-      ? 'Kimi lane can accept isolated website coding requests.'
-      : 'Missing KIMI_API_KEY or MOONSHOT_API_KEY. Lane is scaffolded but not yet authenticated.'
+    note: primary.apiKey
+      ? 'Primary website-coder lane is configured.'
+      : 'Primary Kimi lane is missing credentials.',
+    fallbackNote: config.fallbackEnabled
+      ? (fallback.apiKey ? 'Fallback provider is ready.' : 'Fallback provider is not configured yet.')
+      : 'Fallback is disabled.'
   };
 }
 
@@ -81,26 +112,25 @@ function buildSystemPrompt({ mode, language, stack }) {
   return base.join(' ');
 }
 
-async function askWebsiteCoder({ prompt, mode, language, stack }) {
-  const config = readConfig();
-  const apiKey = getApiKey();
-
-  if (!config.enabled) throw new Error('Kimi website coder lane is disabled');
-  if (!apiKey) throw new Error('Missing KIMI_API_KEY or MOONSHOT_API_KEY');
+async function requestProvider(provider, { prompt, mode, language, stack }, config) {
+  const providerState = getProviderState(provider, config);
+  if (!providerState.apiKey) {
+    throw new Error(`Missing ${provider === 'openai' ? 'OPENAI_API_KEY' : 'KIMI_API_KEY or MOONSHOT_API_KEY'}`);
+  }
 
   const finalMode = mode || config.defaultMode || 'recommendations';
   const finalLanguage = language || config.defaultLanguage || 'en';
   const finalStack = stack || config.defaultStack || 'html-css-js';
   const system = buildSystemPrompt({ mode: finalMode, language: finalLanguage, stack: finalStack });
 
-  const response = await fetch(`${config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+  const response = await fetch(`${providerState.baseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
+      Authorization: `Bearer ${providerState.apiKey}`
     },
     body: JSON.stringify({
-      model: config.model,
+      model: providerState.model,
       temperature: 0.7,
       messages: [
         { role: 'system', content: system },
@@ -111,21 +141,43 @@ async function askWebsiteCoder({ prompt, mode, language, stack }) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = payload?.error?.message || payload?.message || `Kimi request failed with status ${response.status}`;
+    const message = payload?.error?.message || payload?.message || `${providerState.provider} request failed with status ${response.status}`;
     throw new Error(message);
   }
 
-  const text = payload?.choices?.[0]?.message?.content || '';
   return {
     ok: true,
-    provider: config.provider,
-    model: config.model,
+    provider: providerState.provider,
+    model: providerState.model,
     mode: finalMode,
     language: finalLanguage,
     stack: finalStack,
-    text,
+    text: payload?.choices?.[0]?.message?.content || '',
     raw: payload
   };
+}
+
+async function askWebsiteCoder({ prompt, mode, language, stack }) {
+  const config = readConfig();
+  if (!config.enabled) throw new Error('Kimi website coder lane is disabled');
+
+  const primaryProvider = config.provider || 'kimi';
+  try {
+    return await requestProvider(primaryProvider, { prompt, mode, language, stack }, config);
+  } catch (primaryError) {
+    const fallbackProvider = config.fallbackProvider || 'openai';
+    if (!config.fallbackEnabled || fallbackProvider === primaryProvider) {
+      throw primaryError;
+    }
+
+    const fallbackResult = await requestProvider(fallbackProvider, { prompt, mode, language, stack }, config);
+    return {
+      ...fallbackResult,
+      fallbackUsed: true,
+      fallbackFrom: primaryProvider,
+      fallbackReason: primaryError.message
+    };
+  }
 }
 
 module.exports = {

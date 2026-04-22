@@ -17,10 +17,12 @@ This lane is intentionally isolated from the main OpenClaw/Telegram routing.
 - Main assistant model
 
 ## Auth
-Set one of these environment variables before starting `/root/mysite`:
-
+Primary provider credentials:
 - `KIMI_API_KEY`
 - `MOONSHOT_API_KEY`
+
+Optional smart fallback credential:
+- `OPENAI_API_KEY`
 
 Example template:
 - `/root/mysite/.env.kimi.example`
@@ -35,6 +37,10 @@ Safe editable fields:
 - `enabled`
 - `model`
 - `baseUrl`
+- `fallbackEnabled`
+- `fallbackProvider`
+- `fallbackModel`
+- `fallbackBaseUrl`
 - `defaultMode`
 - `defaultLanguage`
 - `defaultStack`
@@ -73,5 +79,6 @@ Example body:
 ```
 
 ## Recommended ownership split
-- Kimi writes/designs
+- Kimi writes/designs first
+- OpenAI can act as smart fallback for the isolated lane
 - Main system connects GitHub/Vercel and handles deployment

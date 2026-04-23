@@ -45,6 +45,7 @@ const tasksFile = '/root/mysite/tasks.json';
 const ordersFile = '/root/mysite/orders.json';
 const siteConfigFile = '/root/mysite/site-config.json';
 const siteUsersFile = '/root/mysite/data/site_users.json';
+const authPreviewUsersFile = '/root/mysite/data/auth_preview_users.json';
 
 function readJson(filePath, fallback) {
   try {
@@ -130,6 +131,10 @@ function escapeHtml(s) {
 
 function normalizePhone(value) {
   return String(value || '').replace(/[^\d+]/g, '');
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function normalizeText(value) {
@@ -1377,6 +1382,485 @@ function findMatchingOrders(orders, criteria = {}) {
     return Boolean(customerMatch || phoneMatch);
   });
 }
+
+
+function readAuthPreviewUsers() {
+  const users = readJson(authPreviewUsersFile, []);
+  return Array.isArray(users) ? users : [];
+}
+
+function readPreviewSessionToken(req) {
+  return parseCookies(req).step1_session || '';
+}
+
+function setPreviewSessionCookie(res, token) {
+  res.setHeader('Set-Cookie', `step1_session=${encodeURIComponent(token)}; Path=/step1; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 45}`);
+}
+
+function clearPreviewSessionCookie(res) {
+  res.setHeader('Set-Cookie', 'step1_session=; Path=/step1; HttpOnly; SameSite=Lax; Max-Age=0');
+}
+
+function readCurrentPreviewUser(req) {
+  const token = readPreviewSessionToken(req);
+  if (!token) return null;
+  const users = readAuthPreviewUsers();
+  return users.find(user => user.session_token === token && Date.parse(user.session_expires_at || '') > Date.now()) || null;
+}
+
+function issuePreviewSessionForUser(users, index) {
+  const token = crypto.randomBytes(24).toString('hex');
+  const now = new Date().toISOString();
+  users[index] = {
+    ...users[index],
+    last_login_at: now,
+    session_token: token,
+    session_expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 45).toISOString(),
+    updated_at: now
+  };
+  writeJson(authPreviewUsersFile, users);
+  return token;
+}
+
+function clearPreviewSessionForToken(token) {
+  if (!token) return;
+  const users = readAuthPreviewUsers();
+  const index = users.findIndex(user => user.session_token === token);
+  if (index === -1) return;
+  users[index] = {
+    ...users[index],
+    session_token: '',
+    session_expires_at: '',
+    updated_at: new Date().toISOString()
+  };
+  writeJson(authPreviewUsersFile, users);
+}
+
+function renderStep1PreviewPage(flash = {}) {
+  const infoHtml = flash.info ? `<div class="flash flash-info">${escapeHtml(flash.info)}</div>` : '';
+  const errorHtml = flash.error ? `<div class="flash flash-error">${escapeHtml(flash.error)}</div>` : '';
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Step 1 Preview, Authentication</title>
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f5f5f5;
+            color: #111111;
+          }
+          .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 28px 18px 42px;
+          }
+          .badge {
+            display: inline-flex;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(249,99,2,0.12);
+            color: #f96302;
+            font-weight: 800;
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            margin-bottom: 16px;
+          }
+          h1 {
+            margin: 0 0 10px;
+            font-size: clamp(34px, 7vw, 64px);
+            line-height: 0.96;
+            letter-spacing: -0.05em;
+          }
+          .sub {
+            max-width: 54ch;
+            color: #52525b;
+            font-size: 17px;
+            line-height: 1.7;
+            margin-bottom: 20px;
+          }
+          .flash {
+            border-radius: 16px;
+            padding: 14px 16px;
+            font-weight: 700;
+            margin-bottom: 14px;
+          }
+          .flash-info {
+            background: #eef6ff;
+            color: #175cd3;
+          }
+          .flash-error {
+            background: #fff1f2;
+            color: #b42318;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+          }
+          .card {
+            background: white;
+            border: 1px solid rgba(17,17,17,0.08);
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(17,17,17,0.06);
+            padding: 22px;
+          }
+          .card h2 {
+            margin: 0 0 8px;
+            font-size: 24px;
+          }
+          .card p {
+            color: #52525b;
+            line-height: 1.6;
+            margin: 0 0 18px;
+          }
+          label {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 8px;
+          }
+          input, select, button {
+            width: 100%;
+            border-radius: 14px;
+            font: inherit;
+          }
+          input, select {
+            border: 1px solid rgba(17,17,17,0.14);
+            padding: 14px 15px;
+            margin-bottom: 14px;
+            background: white;
+          }
+          button {
+            border: 0;
+            padding: 15px 18px;
+            background: #111111;
+            color: white;
+            font-weight: 800;
+            cursor: pointer;
+          }
+          .hint {
+            margin-top: 18px;
+            font-size: 14px;
+            color: #5f6368;
+            line-height: 1.6;
+          }
+          .list {
+            margin: 18px 0 0;
+            padding-left: 18px;
+            color: #5f6368;
+            line-height: 1.7;
+          }
+          @media (max-width: 780px) {
+            .grid { grid-template-columns: 1fr; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="wrap">
+          <div class="badge">STEP 1 PREVIEW</div>
+          <h1>Authentication and roles only.</h1>
+          <div class="sub">This preview is isolated from the current live portal. It only covers minimal email and password authentication plus basic role dashboards.</div>
+          ${infoHtml}
+          ${errorHtml}
+          <div class="grid">
+            <section class="card">
+              <h2>Register</h2>
+              <p>Create a minimal test user for this preview only.</p>
+              <form action="/step1/register" method="post">
+                <label for="preview-name">Full name</label>
+                <input id="preview-name" name="fullName" type="text" placeholder="Full name" />
+                <label for="preview-email">Email</label>
+                <input id="preview-email" name="email" type="email" placeholder="name@example.com" required />
+                <label for="preview-password">Password</label>
+                <input id="preview-password" name="password" type="password" minlength="6" placeholder="At least 6 characters" required />
+                <label for="preview-role">Role</label>
+                <select id="preview-role" name="role">
+                  <option value="client">Client</option>
+                  <option value="staff">Staff</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button type="submit">Create preview account</button>
+              </form>
+            </section>
+            <section class="card">
+              <h2>Login</h2>
+              <p>Sign in with email and password, then land on a basic role dashboard.</p>
+              <form action="/step1/login" method="post">
+                <label for="preview-login-email">Email</label>
+                <input id="preview-login-email" name="email" type="email" placeholder="name@example.com" required />
+                <label for="preview-login-password">Password</label>
+                <input id="preview-login-password" name="password" type="password" minlength="6" placeholder="••••••••" required />
+                <button type="submit">Log in</button>
+              </form>
+              <div class="hint">Draft only. No payments, no AI, no project system, no supplier flow.</div>
+              <ul class="list">
+                <li>Minimal email and password auth</li>
+                <li>Role stored per user</li>
+                <li>Basic redirect after login</li>
+                <li>No other feature is active yet</li>
+              </ul>
+            </section>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+function renderStep1Dashboard(user, flash = {}) {
+  const role = String(user?.role || 'client').toLowerCase();
+  const roleTitle = role === 'admin' ? 'Admin dashboard' : role === 'staff' ? 'Staff dashboard' : 'Client dashboard';
+  const roleNote = role === 'admin'
+    ? 'Full control preview. Approval authority lives here later.'
+    : role === 'staff'
+      ? 'Limited edit preview. Operational tools come later.'
+      : 'Client preview. Approval and payment come in later phases only.';
+  const flashHtml = flash.info ? `<div class="flash">${escapeHtml(flash.info)}</div>` : '';
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>${escapeHtml(roleTitle)}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f7f7f7;
+            color: #111111;
+          }
+          .page {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 28px 18px 42px;
+          }
+          .top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+          }
+          .logout {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #111111;
+            background: white;
+            border: 1px solid rgba(17,17,17,0.1);
+            border-radius: 14px;
+            padding: 12px 16px;
+            font-weight: 800;
+          }
+          .card {
+            background: white;
+            border: 1px solid rgba(17,17,17,0.08);
+            border-radius: 24px;
+            box-shadow: 0 16px 40px rgba(17,17,17,0.06);
+            padding: 24px;
+          }
+          .eyebrow {
+            display: inline-flex;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(249,99,2,0.12);
+            color: #f96302;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            margin-bottom: 14px;
+          }
+          h1 {
+            margin: 0 0 10px;
+            font-size: clamp(34px, 7vw, 60px);
+            line-height: 0.98;
+            letter-spacing: -0.05em;
+          }
+          .sub {
+            color: #52525b;
+            line-height: 1.7;
+            max-width: 52ch;
+          }
+          .flash {
+            margin: 18px 0;
+            border-radius: 16px;
+            padding: 14px 16px;
+            background: #eef6ff;
+            color: #175cd3;
+            font-weight: 700;
+          }
+          .stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-top: 18px;
+          }
+          .stat {
+            background: #fafafa;
+            border-radius: 18px;
+            padding: 18px;
+          }
+          .label {
+            color: #5f6368;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+          }
+          .value {
+            font-size: 24px;
+            font-weight: 800;
+          }
+          .notes {
+            margin-top: 18px;
+            padding-left: 18px;
+            color: #5f6368;
+            line-height: 1.7;
+          }
+          @media (max-width: 780px) {
+            .top { flex-direction: column; align-items: flex-start; }
+            .stats { grid-template-columns: 1fr; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="page">
+          <div class="top">
+            <div>
+              <div class="eyebrow">STEP 1 DASHBOARD</div>
+              <h1>${escapeHtml(roleTitle)}</h1>
+            </div>
+            <a class="logout" href="/step1/logout">Log out</a>
+          </div>
+          <section class="card">
+            <div class="sub">${escapeHtml(roleNote)}</div>
+            ${flashHtml}
+            <div class="stats">
+              <div class="stat">
+                <div class="label">USER</div>
+                <div class="value">${escapeHtml(user.full_name || user.email || 'Preview user')}</div>
+              </div>
+              <div class="stat">
+                <div class="label">ROLE</div>
+                <div class="value">${escapeHtml(role)}</div>
+              </div>
+              <div class="stat">
+                <div class="label">LAST LOGIN</div>
+                <div class="value">${escapeHtml(formatDisplayDate(user.last_login_at))}</div>
+              </div>
+            </div>
+            <ul class="notes">
+              <li>This is a draft-only preview for authentication and roles.</li>
+              <li>No payments, AI, uploads, catalog, or proposals are active here.</li>
+              <li>Next phases stay blocked until this step is approved.</li>
+            </ul>
+          </section>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+app.get('/step1', (req, res) => {
+  const currentUser = readCurrentPreviewUser(req);
+  if (currentUser) {
+    res.redirect('/step1/dashboard');
+    return;
+  }
+
+  const error = normalizeText(req.query?.error || '');
+  const info = normalizeText(req.query?.info || '');
+  res.send(renderStep1PreviewPage({ error, info }));
+});
+
+app.post('/step1/register', (req, res) => {
+  const email = normalizeEmail(req.body?.email || '');
+  const password = String(req.body?.password || '').trim();
+  const fullName = normalizeText(req.body?.fullName || '');
+  const role = ['admin', 'staff', 'client'].includes(String(req.body?.role || '').trim().toLowerCase())
+    ? String(req.body?.role || '').trim().toLowerCase()
+    : 'client';
+
+  if (!email.includes('@')) {
+    res.redirect('/step1?error=' + encodeURIComponent('Please enter a valid email address.'));
+    return;
+  }
+
+  if (password.length < 6) {
+    res.redirect('/step1?error=' + encodeURIComponent('Password must be at least 6 characters.'));
+    return;
+  }
+
+  const users = readAuthPreviewUsers();
+  if (users.some(user => normalizeEmail(user.email) === email)) {
+    res.redirect('/step1?error=' + encodeURIComponent('An account with this email already exists in the Step 1 preview.'));
+    return;
+  }
+
+  const passwordRecord = createPasswordRecord(password);
+  const now = new Date().toISOString();
+  users.unshift({
+    id: 'PREVIEWUSER-' + crypto.randomBytes(5).toString('hex'),
+    full_name: fullName,
+    email,
+    role,
+    password_salt: passwordRecord.salt,
+    password_hash: passwordRecord.hash,
+    created_at: now,
+    updated_at: now,
+    last_login_at: now,
+    session_token: '',
+    session_expires_at: ''
+  });
+
+  const token = issuePreviewSessionForUser(users, 0);
+  setPreviewSessionCookie(res, token);
+  res.redirect('/step1/dashboard?info=' + encodeURIComponent('Preview account created successfully.'));
+});
+
+app.post('/step1/login', (req, res) => {
+  const email = normalizeEmail(req.body?.email || '');
+  const password = String(req.body?.password || '').trim();
+  const users = readAuthPreviewUsers();
+  const index = users.findIndex(user => normalizeEmail(user.email) === email);
+
+  if (index === -1 || !verifyPassword(password, users[index])) {
+    res.redirect('/step1?error=' + encodeURIComponent('The email or password is incorrect.'));
+    return;
+  }
+
+  const token = issuePreviewSessionForUser(users, index);
+  setPreviewSessionCookie(res, token);
+  res.redirect('/step1/dashboard?info=' + encodeURIComponent('You are signed in to the Step 1 preview.'));
+});
+
+app.get('/step1/dashboard', (req, res) => {
+  const currentUser = readCurrentPreviewUser(req);
+  if (!currentUser) {
+    res.redirect('/step1?error=' + encodeURIComponent('Please sign in to view the Step 1 dashboard.'));
+    return;
+  }
+
+  const info = normalizeText(req.query?.info || '');
+  res.send(renderStep1Dashboard(currentUser, { info }));
+});
+
+app.get('/step1/logout', (req, res) => {
+  const token = readPreviewSessionToken(req);
+  clearPreviewSessionForToken(token);
+  clearPreviewSessionCookie(res);
+  res.redirect('/step1?info=' + encodeURIComponent('You have been logged out of the Step 1 preview.'));
+});
 
 
 app.get('/', (req, res) => {

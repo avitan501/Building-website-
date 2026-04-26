@@ -18,8 +18,8 @@ This lane is intentionally isolated from the main OpenClaw/Telegram routing.
 
 ## Auth
 Primary provider credentials:
-- `KIMI_API_KEY`
-- `MOONSHOT_API_KEY`
+- `KIMI_OPENROUTER_KEY`
+- `OPENROUTER_KEY`
 
 Optional smart fallback credential:
 - `OPENAI_API_KEY`
@@ -58,7 +58,7 @@ Safe editable fields:
 Example body:
 ```json
 {
-  "model": "moonshot-v1-8k",
+  "model": "moonshotai/kimi-k2.6",
   "defaultMode": "recommendations",
   "defaultLanguage": "en",
   "defaultStack": "html-css-js"
@@ -79,6 +79,6 @@ Example body:
 ```
 
 ## Recommended ownership split
-- Kimi writes/designs first
+- Kimi handles ideas, UX, layout, copy, and planning first
 - OpenAI can act as smart fallback for the isolated lane
-- Main system connects GitHub/Vercel and handles deployment
+- Main system connects GitHub/Vercel, handles code execution, and owns deployment

@@ -6,9 +6,9 @@ const configFile = path.join(__dirname, 'data', 'kimi_coder_config.json');
 function defaultConfig() {
   return {
     enabled: true,
-    provider: 'kimi',
-    model: 'moonshot-v1-8k',
-    baseUrl: 'https://api.moonshot.ai/v1',
+    provider: 'kimi-openrouter',
+    model: 'moonshotai/kimi-k2.6',
+    baseUrl: 'https://openrouter.ai/api/v1',
     fallbackEnabled: true,
     fallbackProvider: 'openai',
     fallbackModel: 'gpt-4.1-mini',
@@ -50,20 +50,20 @@ function getProviderState(provider, config = readConfig()) {
   }
 
   return {
-    provider: 'kimi',
-    apiKey: process.env.KIMI_API_KEY || process.env.MOONSHOT_API_KEY || '',
+    provider: 'kimi-openrouter',
+    apiKey: process.env.KIMI_OPENROUTER_KEY || process.env.OPENROUTER_KEY || process.env.KIMI_API_KEY || '',
     model: config.model,
     baseUrl: config.baseUrl
   };
 }
 
 function getApiKey() {
-  return getProviderState('kimi').apiKey;
+  return getProviderState('kimi-openrouter').apiKey;
 }
 
 function getStatus() {
   const config = readConfig();
-  const primary = getProviderState(config.provider || 'kimi', config);
+  const primary = getProviderState(config.provider || 'kimi-openrouter', config);
   const fallback = getProviderState(config.fallbackProvider || 'openai', config);
   return {
     ok: true,
@@ -83,7 +83,7 @@ function getStatus() {
     defaultStack: config.defaultStack,
     note: primary.apiKey
       ? 'Primary website-coder lane is configured.'
-      : 'Primary Kimi lane is missing credentials.',
+      : 'Primary Kimi lane is missing OpenRouter credentials.',
     fallbackNote: config.fallbackEnabled
       ? (fallback.apiKey ? 'Fallback provider is ready.' : 'Fallback provider is not configured yet.')
       : 'Fallback is disabled.'
@@ -121,7 +121,7 @@ function buildSystemPrompt({ mode, language, stack }) {
 async function requestProvider(provider, { prompt, mode, language, stack }, config) {
   const providerState = getProviderState(provider, config);
   if (!providerState.apiKey) {
-    throw new Error(`Missing ${provider === 'openai' ? 'OPENAI_API_KEY' : 'KIMI_API_KEY or MOONSHOT_API_KEY'}`);
+    throw new Error(`Missing ${provider === 'openai' ? 'OPENAI_API_KEY' : 'KIMI_OPENROUTER_KEY or OPENROUTER_KEY'}`);
   }
 
   const finalMode = mode || config.defaultMode || 'recommendations';
@@ -167,7 +167,7 @@ async function askWebsiteCoder({ prompt, mode, language, stack }) {
   const config = readConfig();
   if (!config.enabled) throw new Error('Kimi website coder lane is disabled');
 
-  const primaryProvider = config.provider || 'kimi';
+  const primaryProvider = config.provider || 'kimi-openrouter';
   try {
     return await requestProvider(primaryProvider, { prompt, mode, language, stack }, config);
   } catch (primaryError) {

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "PREVIEWUSER-f0e53669e4",
+    "full_name": "Preview User",
+    "email": "preview.6943@example.com",
+    "role": "staff",
+    "password_salt": "cafc42df481b213bf94b0955f8ab4f87",
+    "password_hash": "69b4a8211a5237fcca22602cd3e5ac6ead7b54e4a24891b93c0d086fe1c600c6f4208461c17c4d621ff580716b0e15d066e280d1af1ad6c5f2c95b9e953bc5ca",
+    "created_at": "2026-04-23T02:59:08.407Z",
+    "updated_at": "2026-04-23T02:59:08.408Z",
+    "last_login_at": "2026-04-23T02:59:08.408Z",
+    "session_token": "bce9f1c75935b56b6ccc13321daaeefa7d8afc823a79c206",
+    "session_expires_at": "2026-06-07T02:59:08.408Z"
+  }
+]

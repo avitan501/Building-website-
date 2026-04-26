@@ -1,8 +1,8 @@
 {
   "enabled": true,
-  "provider": "kimi",
-  "model": "moonshot-v1-8k",
-  "baseUrl": "https://api.moonshot.ai/v1",
+  "provider": "kimi-openrouter",
+  "model": "moonshotai/kimi-k2.6",
+  "baseUrl": "https://openrouter.ai/api/v1",
   "fallbackEnabled": true,
   "fallbackProvider": "openai",
   "fallbackModel": "gpt-4.1-mini",

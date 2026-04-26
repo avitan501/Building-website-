@@ -9,9 +9,15 @@
     "payment_status": "unknown",
     "current_stage": "new",
     "next_step": "Ask the customer to clarify the issue or send a text version of the voice note",
-    "last_customer_message": "אתה באזור קצת יותר מאוחר?\nיש לי מזומן",
+    "last_customer_message": "הוא שלח זל על הדלתות",
     "latest_source_path": "",
     "activity_log": [
+      {
+        "timestamp": "2026-04-22T20:02:14.000Z",
+        "media_type": "",
+        "source_path": "",
+        "body": "הוא שלח זל על הדלתות"
+      },
       {
         "timestamp": "2026-04-22T16:04:51.000Z",
         "media_type": "",
@@ -57,7 +63,7 @@
     ],
     "source": "whatsapp-auto-sync",
     "created_at": "2026-04-21T18:44:18.539Z",
-    "updated_at": "2026-04-22T16:05:00.949Z",
+    "updated_at": "2026-04-22T20:02:56.585Z",
     "standing_summary": "Order ORDER-1001 for Aron Cohen is currently at stage \"new\". Payment status: unknown. Next step: Ask the customer to clarify the issue or send a text version of the voice note."
   }
 ]

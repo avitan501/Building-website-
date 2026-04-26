@@ -1,5 +1,68 @@
 [
   {
+    "id": "TASK-1112",
+    "title": "Website: reposition homepage for building materials sales, contractor portal messaging, and customer quote/delivery flow",
+    "description": "Website: reposition homepage for building materials sales, contractor portal messaging, and customer quote/delivery flow",
+    "source_text": "Website: reposition homepage for building materials sales, contractor portal messaging, and customer quote/delivery flow",
+    "status": "open",
+    "priority": "low",
+    "category": "client",
+    "due_date": "",
+    "source": "telegram",
+    "task_type": "workflow",
+    "customer_name": "quote",
+    "supplier_name": "",
+    "whatsapp_number": "",
+    "amount": "",
+    "next_step": "Review agent output and decide whether to act, edit, or deploy.",
+    "task_notes": "",
+    "tags": [
+      "customer",
+      "client"
+    ],
+    "source_chat_id": "",
+    "source_contact": "",
+    "conversation_history": [
+      {
+        "timestamp": "2026-04-26T04:19:35.936Z",
+        "source": "telegram",
+        "chat_id": "",
+        "contact": "",
+        "body": "Website: reposition homepage for building materials sales, contractor portal messaging, and customer quote/delivery flow"
+      }
+    ],
+    "last_message_at": "2026-04-26T04:19:35.936Z",
+    "contacts": [],
+    "last_contact_at": "",
+    "contact_summary": "",
+    "related_keys": [
+      "customer",
+      "client",
+      "customer:quote",
+      "type:workflow",
+      "category:client"
+    ],
+    "monday_item_id": "11849019568",
+    "monday_board_id": "18409684112",
+    "monday_group_id": "topics",
+    "monday_board_name": "New Board",
+    "monday_url": "https://fivetownsbuilders-team.monday.com/boards/18409684112",
+    "queue_enabled": true,
+    "queue_status": "done",
+    "queue_run_mode": "now",
+    "queue_run_after": "2026-04-26T04:19:35.928Z",
+    "queue_locked_at": "2026-04-26T04:19:38.022Z",
+    "queue_last_run_at": "2026-04-26T04:19:45.689Z",
+    "queue_brain": "general-smart",
+    "queue_router_model": "gpt-4.1-mini",
+    "queue_worker_model": "gpt-4.1",
+    "queue_plan": "Plan homepage redesign to highlight building materials sales, contractor portal, and customer quote/delivery flow.\n\nReposition homepage content to improve user navigation and messaging clarity.\n\n1. Analyze current homepage layout and content. 2. Identify key sections: building materials sales, contractor portal messaging, customer quote/delivery flow. 3. Create wireframe or sitemap emphasizing these sections prominently. 4. Suggest content updates and call-to-actions for each section. 5. Plan user flow improvements for quote and delivery processes. 6. Prepare recommendations for implementation.",
+    "queue_result": "1. Outcome  \nImproved homepage layout and messaging to clearly highlight building materials sales, contractor portal access, and customer quote/delivery process, resulting in better user navigation and engagement.\n\n2. Recommended actions  \n- Redesign homepage sections to prominently feature building materials categories and sales promotions.  \n- Add clear, visible call-to-action (CTA) for contractor portal access with concise messaging.  \n- Streamline and visually map out the customer quote and delivery request flow on the homepage.  \n- Update navigation/menu to reflect these priorities.  \n- Review and refine homepage copy for clarity and relevance.\n\n3. Risks or blockers  \n- Delays in content or design approvals.  \n- Limited access to current website assets or CMS.  \n- Potential misalignment with existing brand guidelines.\n\n4. Suggested next step  \nSchedule a stakeholder review to confirm homepage priorities and gather any required assets or messaging before starting design updates.",
+    "queue_error": "",
+    "created_at": "2026-04-26T04:19:35.937Z",
+    "updated_at": "2026-04-26T04:19:47.480Z"
+  },
+  {
     "id": "TASK-1111",
     "title": "לעבוד על האתר אינטרנט שלי שמוכר חומרי בנייה",
     "description": "לעבוד על האתר אינטרנט שלי שמוכר חומרי בנייה",

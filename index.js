@@ -3,6 +3,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { spawnSync } = require('child_process');
 const { transcribeAudio, readDocument } = require('./order-intelligence');
 const { syncWhatsAppOrders } = require('./whatsapp-order-sync');
 const { readTasks, syncExistingTaskToMonday, getMondayBoard } = require('./task-intelligence');
@@ -37,8 +38,8 @@ const {
 } = require('./queue-dashboard');
 const app = express();
 
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: false, limit: '25mb' }));
 
 const messagesFile = '/root/mysite/messages.json';
 const tasksFile = '/root/mysite/tasks.json';
@@ -223,540 +224,476 @@ function formatDisplayDate(value) {
   return date.toISOString().slice(0, 16).replace('T', ' ');
 }
 
+function safeFileStem(value) {
+  return String(value || 'file')
+    .replace(/\.pdf$/i, '')
+    .replace(/[^a-z0-9\u0590-\u05FF_-]+/gi, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80) || 'file';
+}
+
+function runQuoteRedactionJob({ fileName, base64Data }) {
+  const outDir = '/root/.openclaw/workspace/out';
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const jobId = 'quote-redact-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
+  const stem = safeFileStem(fileName);
+  const inputPath = path.join(outDir, `${jobId}-${stem}-original.pdf`);
+  const outputName = `${jobId}-${stem}-cleaned.pdf`;
+  const outputPath = path.join(outDir, outputName);
+  fs.writeFileSync(inputPath, Buffer.from(String(base64Data || ''), 'base64'));
+
+  const script = String.raw`
+import json
+import re
+import sys
+from pathlib import Path
+
+VENDOR_DIR = Path('/root/.openclaw/workspace/.vendor/pdf-tools')
+if VENDOR_DIR.exists():
+    sys.path.insert(0, str(VENDOR_DIR))
+
+import pymupdf
+
+input_path = Path(sys.argv[1])
+output_path = Path(sys.argv[2])
+replacement = 'seller name hide for bidding purposes'
+doc = pymupdf.open(str(input_path))
+summary = {'ok': True, 'pages': len(doc), 'text_hits': 0, 'top_rects': 0, 'footer_rects': 0}
+phone_re = re.compile(r'(?:\+?\d[\d\s().-]{6,}\d)')
+email_re = re.compile(r'[^\s@]+@[^\s@]+\.[^\s@]+')
+web_re = re.compile(r'(?:https?://|www\.)', re.I)
+address_words = {'st', 'street', 'ave', 'avenue', 'blvd', 'boulevard', 'rd', 'road', 'suite', 'floor', 'ny', 'nj'}
+
+for page in doc:
+    width = page.rect.width
+    height = page.rect.height
+    top_words = []
+    footer_words = []
+    suspicious = set()
+
+    for word in page.get_text('words'):
+        x0, y0, x1, y1, text = word[:5]
+        text = str(text or '').strip()
+        if not text:
+            continue
+        lower = text.lower().strip(' ,:;|')
+        if y0 <= min(140, height * 0.22) and x0 <= width * 0.62:
+            top_words.append((x0, y0, x1, y1, text))
+        if y1 >= height - min(90, height * 0.14):
+            footer_words.append((x0, y0, x1, y1, text))
+        if email_re.search(text) or web_re.search(text) or phone_re.search(text) or lower in address_words:
+            suspicious.add(text)
+
+    if top_words:
+        x0 = min(item[0] for item in top_words)
+        y0 = min(item[1] for item in top_words)
+        x1 = max(item[2] for item in top_words)
+        y1 = max(item[3] for item in top_words)
+        top_rect = pymupdf.Rect(max(0, x0 - 18), max(0, y0 - 18), min(width, max(x1 + 24, width * 0.58)), min(height, max(y1 + 26, 118)))
+        page.draw_rect(top_rect, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
+        page.insert_textbox(top_rect, replacement, fontsize=11, fontname='helv', color=(0.2, 0.2, 0.2), align=1)
+        summary['top_rects'] += 1
+
+    if footer_words:
+        x0 = min(item[0] for item in footer_words)
+        y0 = min(item[1] for item in footer_words)
+        x1 = max(item[2] for item in footer_words)
+        y1 = max(item[3] for item in footer_words)
+        footer_rect = pymupdf.Rect(max(0, x0 - 12), max(0, y0 - 10), min(width, x1 + 20), min(height, y1 + 14))
+        page.draw_rect(footer_rect, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
+        summary['footer_rects'] += 1
+
+    for text in suspicious:
+        for rect in page.search_for(text):
+            page.add_redact_annot(rect, fill=(1, 1, 1))
+            summary['text_hits'] += 1
+
+for page in doc:
+    if page.first_annot is not None:
+        page.apply_redactions(images=2, graphics=2, text=0)
+
+output_path.parent.mkdir(parents=True, exist_ok=True)
+doc.save(str(output_path), garbage=4, clean=True, deflate=True)
+doc.close()
+print(json.dumps(summary))
+`;
+
+  const run = spawnSync('python3', ['-c', script, inputPath, outputPath], {
+    encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024,
+  });
+
+  if (run.status !== 0) {
+    throw new Error((run.stderr || run.stdout || 'quote redaction failed').trim());
+  }
+
+  let summary = {};
+  try {
+    summary = JSON.parse(run.stdout || '{}');
+  } catch {
+    summary = { ok: true, raw: run.stdout || '' };
+  }
+
+  return {
+    ok: true,
+    inputPath,
+    outputPath,
+    outputName,
+    downloadUrl: `/downloads/${encodeURIComponent(outputName)}`,
+    summary,
+  };
+}
+
 function renderEntryPage(cfg, flash = {}) {
   const theme = {
     accent: cfg.brand?.accent || '#f96302',
     dark: cfg.brand?.dark || '#111111',
-    light: cfg.brand?.light || '#ffffff',
-    bg: cfg.bg || '#f5f5f5',
+    bg: cfg.bg || '#eef3fb',
     text: cfg.text || '#111111',
-    name: cfg.brand?.name || cfg.title || 'Build Your Account'
+    name: cfg.brand?.name || cfg.title || 'Concierge Site'
   };
-  const entry = cfg.entryPage || {};
-  const tiles = Array.isArray(entry.tiles) && entry.tiles.length ? entry.tiles : [];
+  const launcher = cfg.launcher || {};
+  const folders = Array.isArray(launcher.folders) ? launcher.folders : [];
   const flashHtml = flash.error
     ? `<div class="flash flash-error">${escapeHtml(flash.error)}</div>`
     : flash.info
       ? `<div class="flash flash-info">${escapeHtml(flash.info)}</div>`
       : '';
-  const googleHelp = process.env.GOOGLE_CLIENT_ID
-    ? 'Google sign-in is ready to connect once full OAuth is enabled.'
-    : 'Google sign-in is already shown here and will go live once Google OAuth is connected.';
 
   return `
     <!DOCTYPE html>
-    <html lang="en">
+    <html lang="he" dir="rtl">
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>${escapeHtml(cfg.title || 'Customer Portal')}</title>
+        <title>${escapeHtml(cfg.title || 'Concierge Site')}</title>
         <style>
           :root {
             --accent: ${escapeHtml(theme.accent)};
             --dark: ${escapeHtml(theme.dark)};
-            --light: ${escapeHtml(theme.light)};
             --bg: ${escapeHtml(theme.bg)};
             --text: ${escapeHtml(theme.text)};
           }
           * { box-sizing: border-box; }
           body {
             margin: 0;
+            min-height: 100vh;
             font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: linear-gradient(180deg, #fff8f2 0%, var(--bg) 48%, #ffffff 100%);
+            background:
+              radial-gradient(circle at top right, rgba(249,99,2,0.12), transparent 22%),
+              linear-gradient(180deg, #eaf2ff 0%, var(--bg) 55%, #f7fbff 100%);
             color: var(--text);
           }
-          .top-strip {
-            background: var(--accent);
-            color: white;
-            text-align: center;
-            padding: 12px 18px;
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-          }
           .page {
-            max-width: 1220px;
+            max-width: 1320px;
             margin: 0 auto;
-            padding: 28px 20px 40px;
+            padding: 28px 22px 42px;
           }
-          .brand-row {
+          .topbar {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
-            margin-bottom: 28px;
-          }
-          .brand-lockup {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-          }
-          .brand-box {
-            width: 54px;
-            height: 54px;
-            border-radius: 14px;
-            background: var(--accent);
-            color: white;
-            display: grid;
-            place-items: center;
-            font-size: 13px;
-            font-weight: 900;
-            line-height: 1;
-            text-align: center;
-            box-shadow: 0 18px 35px rgba(249, 99, 2, 0.25);
-          }
-          .brand-name {
-            font-size: 24px;
-            font-weight: 800;
-          }
-          .brand-sub {
-            color: #5f6368;
-            font-size: 14px;
-          }
-          .hero {
-            display: grid;
-            grid-template-columns: minmax(0, 1.25fr) minmax(320px, 460px);
-            gap: 26px;
-            align-items: stretch;
-          }
-          .hero-panel,
-          .auth-card,
-          .tile,
-          .mini-card {
-            background: rgba(255,255,255,0.9);
-            border: 1px solid rgba(17,17,17,0.08);
-            border-radius: 28px;
-            box-shadow: 0 22px 60px rgba(17,17,17,0.08);
-          }
-          .hero-panel {
-            padding: 34px;
-            position: relative;
-            overflow: hidden;
-          }
-          .hero-panel::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, rgba(249,99,2,0.14), transparent 38%, rgba(17,17,17,0.05));
-            pointer-events: none;
-          }
-          .eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: 999px;
-            background: rgba(249,99,2,0.12);
-            color: var(--accent);
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.12em;
+            gap: 18px;
             margin-bottom: 18px;
           }
-          h1 {
-            font-size: clamp(42px, 6vw, 74px);
-            line-height: 0.95;
-            margin: 0 0 18px;
-            letter-spacing: -0.05em;
-            max-width: 9ch;
-          }
-          .hero-copy {
-            font-size: 18px;
-            line-height: 1.7;
-            color: #3c4043;
-            max-width: 54ch;
-            margin-bottom: 24px;
-          }
-          .hero-badges {
+          .brand {
             display: flex;
-            flex-wrap: wrap;
+            align-items: center;
             gap: 12px;
-            margin-bottom: 28px;
           }
-          .hero-badge {
-            padding: 11px 14px;
+          .brand-icon {
+            width: 44px;
+            height: 44px;
             border-radius: 14px;
-            background: white;
-            border: 1px solid rgba(17,17,17,0.08);
-            font-size: 14px;
-            font-weight: 700;
-          }
-          .tile-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 16px;
-          }
-          .tile {
-            padding: 20px;
-            min-height: 154px;
+            background: linear-gradient(180deg, #ffd879 0%, #f8b325 100%);
+            box-shadow: inset 0 2px 0 rgba(255,255,255,.55), 0 10px 25px rgba(53,86,140,.15);
             position: relative;
           }
-          .tile::after {
+          .brand-icon::before {
             content: "";
             position: absolute;
-            inset-inline-start: 0;
-            top: 0;
-            width: 8px;
-            height: 100%;
-            background: linear-gradient(180deg, var(--accent), #ffbb80);
-            border-radius: 28px 0 0 28px;
+            top: 7px;
+            right: 6px;
+            width: 18px;
+            height: 8px;
+            border-radius: 8px 8px 0 0;
+            background: rgba(255,255,255,.45);
           }
-          .tile strong {
-            display: block;
-            font-size: 24px;
-            margin-bottom: 10px;
-            line-height: 1.05;
+          .brand-name {
+            font-size: 22px;
+            font-weight: 800;
           }
-          .tile p {
-            margin: 0;
-            line-height: 1.6;
-            color: #4f5358;
+          .brand-subtitle {
+            color: #5a6372;
+            font-size: 13px;
           }
-          .auth-card {
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
+          .status-pill {
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.8);
+            border: 1px solid rgba(17,17,17,.08);
+            font-size: 13px;
+            color: #516074;
+            backdrop-filter: blur(8px);
           }
-          .auth-card h2 {
+          .desktop {
+            min-height: calc(100vh - 110px);
+            border-radius: 34px;
+            padding: 26px;
+            background: linear-gradient(180deg, rgba(255,255,255,.66), rgba(255,255,255,.52));
+            border: 1px solid rgba(255,255,255,.68);
+            box-shadow: 0 28px 70px rgba(30, 56, 100, 0.12);
+            backdrop-filter: blur(12px);
+          }
+          .headline {
             margin: 0 0 8px;
-            font-size: 30px;
+            font-size: clamp(28px, 5vw, 48px);
+            line-height: 1;
             letter-spacing: -0.04em;
           }
-          .auth-card p {
+          .subhead {
+            max-width: 760px;
             margin: 0;
-            color: #5f6368;
-            line-height: 1.6;
+            color: #5b6575;
+            font-size: 16px;
+            line-height: 1.7;
           }
           .flash {
-            margin: 18px 0 0;
+            margin-top: 16px;
             padding: 12px 14px;
             border-radius: 14px;
             font-size: 14px;
             font-weight: 700;
+            width: fit-content;
+            max-width: 100%;
           }
           .flash-error { background: #fff2ee; color: #b42318; }
           .flash-info { background: #eef6ff; color: #175cd3; }
-          .google-form { margin-top: 22px; }
-          .google-button,
-          .primary-button,
-          .secondary-button {
-            width: 100%;
-            border: 0;
+          .folders {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 22px;
+            margin-top: 34px;
+          }
+          .folder {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            align-items: flex-start;
+            text-decoration: none;
+            color: inherit;
+            padding: 18px;
+            border-radius: 24px;
+            background: rgba(255,255,255,.62);
+            border: 1px solid rgba(17,17,17,.08);
+            transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+          }
+          .folder:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 18px 34px rgba(30,56,100,.12);
+            background: rgba(255,255,255,.84);
+          }
+          .folder-icon {
+            width: 86px;
+            height: 66px;
             border-radius: 16px;
-            padding: 15px 18px;
-            font-size: 15px;
-            font-weight: 800;
-            cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+            background: linear-gradient(180deg, #ffdb7c 0%, #f4b019 100%);
+            box-shadow: inset 0 2px 0 rgba(255,255,255,.5), 0 10px 22px rgba(58,82,129,.14);
+            position: relative;
           }
-          .google-button:hover,
-          .primary-button:hover,
-          .secondary-button:hover { transform: translateY(-1px); }
-          .google-button {
-            background: #ffffff;
-            color: var(--dark);
-            border: 1px solid rgba(17,17,17,0.12);
-          }
-          .primary-button {
-            background: var(--accent);
-            color: white;
-            box-shadow: 0 18px 35px rgba(249, 99, 2, 0.26);
-          }
-          .secondary-button {
-            background: #111111;
-            color: white;
-          }
-          .google-help,
-          .security-note,
-          .toggle-line {
-            margin-top: 10px;
-            font-size: 13px;
-            color: #5f6368;
-            line-height: 1.6;
-          }
-          .account-links {
-            margin-top: 18px;
-            border-top: 1px solid rgba(17,17,17,0.08);
-            padding-top: 8px;
-          }
-          .account-link {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
-            padding: 14px 0;
-            border-bottom: 1px solid rgba(17,17,17,0.08);
-          }
-          .account-link:last-child {
-            border-bottom: 0;
-            padding-bottom: 0;
-          }
-          .account-link-icon {
-            width: 42px;
-            height: 42px;
-            border-radius: 12px;
-            display: grid;
-            place-items: center;
-            background: rgba(249,99,2,0.1);
-            color: var(--accent);
-            font-size: 20px;
-            flex: 0 0 auto;
-          }
-          .account-link-copy {
-            flex: 1;
-          }
-          .account-link-copy strong {
-            display: block;
-            font-size: 15px;
-            margin-bottom: 4px;
-          }
-          .account-link-copy span {
-            display: block;
-            color: #5f6368;
-            font-size: 13px;
-            line-height: 1.5;
-          }
-          .account-link-arrow {
-            color: #90959c;
-            font-size: 18px;
-          }
-          .divider {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: #90959c;
-            font-size: 12px;
-            font-weight: 800;
-            margin: 22px 0;
-            letter-spacing: 0.1em;
-          }
-          .divider::before,
-          .divider::after {
+          .folder-icon::before {
             content: "";
-            flex: 1;
-            height: 1px;
-            background: rgba(17,17,17,0.1);
+            position: absolute;
+            top: -8px;
+            right: 10px;
+            width: 34px;
+            height: 14px;
+            border-radius: 10px 10px 0 0;
+            background: #ffd26a;
           }
-          .auth-tabs {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+          .folder-title {
+            font-size: 20px;
+            font-weight: 800;
+            line-height: 1.2;
+          }
+          .folder-copy {
+            color: #5a6372;
+            line-height: 1.6;
+            font-size: 14px;
+          }
+          .folder-tag {
+            margin-top: auto;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(17,17,17,.05);
+            font-size: 12px;
+            font-weight: 700;
+            color: #445066;
+          }
+          .notes {
+            display: flex;
+            flex-wrap: wrap;
             gap: 10px;
-            margin-bottom: 18px;
+            margin-top: 26px;
           }
-          .tab-button {
-            border: 1px solid rgba(17,17,17,0.1);
-            background: #f3f4f6;
-            color: #111111;
+          .note {
+            padding: 12px 14px;
             border-radius: 14px;
-            padding: 12px;
-            font-weight: 800;
-            cursor: pointer;
-          }
-          .tab-button.is-active {
-            background: rgba(249,99,2,0.12);
-            border-color: rgba(249,99,2,0.3);
-            color: var(--accent);
-          }
-          .form-panel { display: none; }
-          .form-panel.is-active { display: block; }
-          label {
-            display: block;
-            font-size: 13px;
-            font-weight: 800;
-            color: #2c2f33;
-            margin: 12px 0 8px;
-          }
-          input {
-            width: 100%;
-            border-radius: 14px;
-            border: 1px solid rgba(17,17,17,0.14);
-            background: white;
-            padding: 15px 16px;
-            font: inherit;
-          }
-          input:focus {
-            outline: 2px solid rgba(249,99,2,0.22);
-            border-color: var(--accent);
-          }
-          .mini-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 14px;
-            margin-top: 18px;
-          }
-          .mini-card {
-            padding: 16px;
-          }
-          .mini-card strong {
-            display: block;
-            font-size: 13px;
-            color: #5f6368;
-            margin-bottom: 8px;
-          }
-          .mini-card span {
-            font-size: 18px;
-            font-weight: 800;
-            line-height: 1.25;
-          }
-          @media (max-width: 980px) {
-            .hero { grid-template-columns: 1fr; }
+            background: rgba(255,255,255,.66);
+            border: 1px solid rgba(17,17,17,.07);
+            color: #556173;
+            font-size: 14px;
           }
           @media (max-width: 640px) {
             .page { padding-inline: 14px; }
-            .hero-panel,
-            .auth-card { padding: 22px; }
-            .tile-grid,
-            .mini-grid { grid-template-columns: 1fr; }
+            .topbar { align-items: flex-start; flex-direction: column; }
+            .desktop { padding: 20px; border-radius: 24px; }
+            .folders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+            .folder { padding: 14px; }
+            .folder-icon { width: 72px; height: 58px; }
           }
         </style>
       </head>
       <body>
-        <div class="top-strip">CUSTOMER PORTAL, fast access, clear status, and a clean return path.</div>
         <main class="page">
-          <div class="brand-row">
-            <div class="brand-lockup">
-              <div class="brand-box">BUILD</div>
+          <div class="topbar">
+            <div class="brand">
+              <div class="brand-icon"></div>
               <div>
                 <div class="brand-name">${escapeHtml(theme.name)}</div>
-                <div class="brand-sub">${escapeHtml(cfg.subtitle || '')}</div>
+                <div class="brand-subtitle">${escapeHtml(cfg.subtitle || '')}</div>
               </div>
             </div>
+            <div class="status-pill">Concierge Site · עמוד עבודה פנימי</div>
           </div>
 
-          <section class="hero">
-            <div class="hero-panel">
-              <div class="eyebrow">${escapeHtml(entry.eyebrow || 'WELCOME')}</div>
-              <h1>${escapeHtml(entry.headline || 'Fast account access')}</h1>
-              <div class="hero-copy">${escapeHtml(entry.subheadline || '')}</div>
+          <section class="desktop">
+            <h1 class="headline">${escapeHtml(launcher.headline || 'שולחן העבודה של Concierge Site')}</h1>
+            <p class="subhead">${escapeHtml(launcher.subheadline || 'כאן נעבוד קודם כפונקציות נפרדות. כל תיקייה פותחת כלי אחר, ואחר כך נמיר את הכול לאתר מלא עם דפים מסודרים.')}</p>
+            ${flashHtml}
 
-              <div class="hero-badges">
-                <div class="hero-badge">Home Depot energy</div>
-                <div class="hero-badge">Apple/Tesla spacing</div>
-                <div class="hero-badge">Status-first account</div>
-              </div>
-
-              <div class="tile-grid">
-                ${tiles.map(tile => `
-                  <article class="tile">
-                    <strong>${escapeHtml(tile.title || '')}</strong>
-                    <p>${escapeHtml(tile.content || '')}</p>
-                  </article>
-                `).join('')}
-              </div>
-
-              <div class="mini-grid">
-                <div class="mini-card">
-                  <strong>Easy return</strong>
-                  <span>Secure access so customers can come back to their portal anytime.</span>
-                </div>
-                <div class="mini-card">
-                  <strong>Clear layout</strong>
-                  <span>Large type, generous spacing, and a direct call to action.</span>
-                </div>
-                <div class="mini-card">
-                  <strong>Next step</strong>
-                  <span>After login, this portal will show real order and account status.</span>
-                </div>
-              </div>
+            <div class="folders">
+              ${folders.map(folder => `
+                <a class="folder" href="${escapeHtml(folder.href || '#')}">
+                  <div class="folder-icon"></div>
+                  <div class="folder-title">${escapeHtml(folder.title || '')}</div>
+                  <div class="folder-copy">${escapeHtml(folder.description || '')}</div>
+                  <div class="folder-tag">${escapeHtml(folder.tag || '')}</div>
+                </a>
+              `).join('')}
             </div>
 
-            <aside class="auth-card">
-              <h2>${escapeHtml(entry.phoneLoginTitle || 'Sign in to your account')}</h2>
-              <p>One clear entry point with two options, Google or phone and password.</p>
-              ${flashHtml}
-
-              <form class="google-form" action="/api/auth/google" method="post">
-                <button class="google-button" type="submit">${escapeHtml(entry.googleButtonLabel || 'Continue with Google')}</button>
-              </form>
-              <div class="google-help">${escapeHtml(googleHelp)}</div>
-
-              <div class="divider">OR</div>
-
-              <div class="auth-tabs">
-                <button type="button" class="tab-button is-active" data-tab="login">Sign in</button>
-                <button type="button" class="tab-button" data-tab="register">Register</button>
-              </div>
-
-              <form class="form-panel is-active" data-panel="login" action="/api/auth/login" method="post">
-                <label for="login-phone">Phone</label>
-                <input id="login-phone" name="phone" type="tel" inputmode="tel" placeholder="(555) 123-4567" required />
-
-                <label for="login-password">Password</label>
-                <input id="login-password" name="password" type="password" minlength="6" placeholder="••••••••" required />
-
-                <div style="height:14px"></div>
-                <button class="primary-button" type="submit">Sign in to account</button>
-              </form>
-
-              <form class="form-panel" data-panel="register" action="/api/auth/register" method="post">
-                <label for="register-name">Full name</label>
-                <input id="register-name" name="fullName" type="text" placeholder="How should we address you?" />
-
-                <label for="register-phone">Phone</label>
-                <input id="register-phone" name="phone" type="tel" inputmode="tel" placeholder="(555) 123-4567" required />
-
-                <label for="register-password">Password</label>
-                <input id="register-password" name="password" type="password" minlength="6" placeholder="At least 6 characters" required />
-
-                <div style="height:14px"></div>
-                <button class="secondary-button" type="submit">${escapeHtml(entry.registerButtonLabel || 'Create account')}</button>
-              </form>
-
-              <div class="security-note">Passwords are stored securely on the server. Google sign-in will become fully live after Google OAuth is connected.</div>
-              <div class="toggle-line">This page is the first customer entry point, built for fast return access to the portal.</div>
-
-              <div class="account-links">
-                <div class="account-link">
-                  <div class="account-link-icon">◎</div>
-                  <div class="account-link-copy">
-                    <strong>Track Order</strong>
-                    <span>Customers will come here to follow order status and account updates.</span>
-                  </div>
-                  <div class="account-link-arrow">›</div>
-                </div>
-                <div class="account-link">
-                  <div class="account-link-icon">▣</div>
-                  <div class="account-link-copy">
-                    <strong>Cards & Accounts</strong>
-                    <span>Persistent access with saved customer details and account data.</span>
-                  </div>
-                  <div class="account-link-arrow">›</div>
-                </div>
-                <div class="account-link">
-                  <div class="account-link-icon">◔</div>
-                  <div class="account-link-copy">
-                    <strong>Profile</strong>
-                    <span>User details, activity history, and account status in one place.</span>
-                  </div>
-                  <div class="account-link-arrow">›</div>
-                </div>
-                <div class="account-link">
-                  <div class="account-link-icon">♡</div>
-                  <div class="account-link-copy">
-                    <strong>Saved Lists</strong>
-                    <span>Later we can connect saved lists, requests, and customer preferences.</span>
-                  </div>
-                  <div class="account-link-arrow">›</div>
-                </div>
-              </div>
-            </aside>
+            <div class="notes">
+              <div class="note">הפונקציה הראשונה מוכנה כעמוד נפרד עם העלאת PDF ישירה.</div>
+              <div class="note">גוגל דרייב לא מעורב בזרימה הזאת — הקובץ חוזר כהורדה ישירה.</div>
+            </div>
           </section>
         </main>
-
-        <script>
-          const tabs = document.querySelectorAll('[data-tab]');
-          const panels = document.querySelectorAll('[data-panel]');
-          tabs.forEach(button => {
-            button.addEventListener('click', () => {
-              const selected = button.getAttribute('data-tab');
-              tabs.forEach(tab => tab.classList.toggle('is-active', tab === button));
-              panels.forEach(panel => panel.classList.toggle('is-active', panel.getAttribute('data-panel') === selected));
-            });
-          });
-        </script>
       </body>
     </html>
   `;
+}
+
+function renderQuoteRedactionPage(cfg, flash = {}) {
+  const theme = {
+    accent: cfg.brand?.accent || '#f96302',
+    bg: cfg.bg || '#eef3fb',
+    text: cfg.text || '#111111',
+    name: cfg.brand?.name || cfg.title || 'Concierge Site'
+  };
+  const flashHtml = flash.error
+    ? `<div class="flash flash-error">${escapeHtml(flash.error)}</div>`
+    : flash.info
+      ? `<div class="flash flash-info">${escapeHtml(flash.info)}</div>`
+      : '';
+
+  return `<!DOCTYPE html>
+  <html lang="he" dir="rtl">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>עריכת הצעת מחיר</title>
+      <style>
+        :root { --accent:${escapeHtml(theme.accent)}; --bg:${escapeHtml(theme.bg)}; --text:${escapeHtml(theme.text)}; }
+        * { box-sizing:border-box; }
+        body { margin:0; font-family:Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:var(--text); background:linear-gradient(180deg, #edf4ff 0%, var(--bg) 100%); }
+        .page { max-width:920px; margin:0 auto; padding:28px 18px 44px; }
+        .back { color:#526073; text-decoration:none; font-weight:700; }
+        .card { margin-top:18px; background:rgba(255,255,255,.88); border:1px solid rgba(17,17,17,.08); border-radius:30px; padding:26px; box-shadow:0 24px 60px rgba(30,56,100,.10); }
+        h1 { margin:0 0 10px; font-size:clamp(30px, 6vw, 48px); letter-spacing:-.04em; }
+        p { color:#5a6677; line-height:1.75; }
+        .flash { margin:16px 0; padding:12px 14px; border-radius:14px; font-size:14px; font-weight:700; }
+        .flash-error { background:#fff2ee; color:#b42318; }
+        .flash-info { background:#eef6ff; color:#175cd3; }
+        .upload-box { margin-top:22px; padding:22px; border-radius:22px; border:2px dashed rgba(17,17,17,.12); background:#f9fbff; }
+        input[type=file] { width:100%; padding:12px; background:#fff; border-radius:14px; border:1px solid rgba(17,17,17,.1); }
+        button { margin-top:16px; border:0; border-radius:16px; padding:15px 18px; background:var(--accent); color:#fff; font:inherit; font-weight:800; cursor:pointer; box-shadow:0 18px 34px rgba(249,99,2,.22); }
+        button:disabled { opacity:.6; cursor:wait; }
+        .small { font-size:13px; color:#687487; }
+        .result { margin-top:18px; padding:16px; border-radius:18px; background:#fff; border:1px solid rgba(17,17,17,.08); display:none; }
+        .result.show { display:block; }
+        .download { display:inline-flex; margin-top:12px; text-decoration:none; color:#111; background:#f4f6fb; border-radius:12px; padding:10px 12px; font-weight:800; }
+      </style>
+    </head>
+    <body>
+      <main class="page">
+        <a class="back" href="/">← חזרה לשולחן העבודה</a>
+        <section class="card">
+          <div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:8px;">Concierge Site · כלי 01</div>
+          <h1>עריכת הצעת מחיר</h1>
+          <p>מעלים PDF, אני מוחק את פרטי המוכר והמיתוג במקום שבו הם מזוהים, מוסיף <b>seller name hide for bidding purposes</b> באזור הכותרת, ומחזיר קובץ להורדה ישירה בלי Google Drive.</p>
+          ${flashHtml}
+          <div class="upload-box">
+            <label for="pdfFile" style="display:block;font-weight:800;margin-bottom:10px;">קובץ PDF להצעת מחיר</label>
+            <input id="pdfFile" type="file" accept="application/pdf" />
+            <button id="submitBtn" type="button">נקה את ההצעה</button>
+            <div class="small">כרגע הכלי מטפל קודם בכותרת/לוגו/פרטי ספק ובפרטי קשר חוזרים. אם יהיה PDF חריג נחדד אותו בשלב הבא.</div>
+          </div>
+          <div id="result" class="result"></div>
+        </section>
+      </main>
+      <script>
+        const fileInput = document.getElementById('pdfFile');
+        const button = document.getElementById('submitBtn');
+        const result = document.getElementById('result');
+        function showResult(html) { result.innerHTML = html; result.classList.add('show'); }
+        button.addEventListener('click', async () => {
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) { showResult('<strong>צריך לבחור קובץ PDF קודם.</strong>'); return; }
+          if (file.type && file.type !== 'application/pdf') { showResult('<strong>הקובץ חייב להיות PDF.</strong>'); return; }
+          button.disabled = true;
+          button.textContent = 'מנקה עכשיו...';
+          try {
+            const buffer = await file.arrayBuffer();
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const chunk = 0x8000;
+            for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode.apply(null, bytes.slice(i, i + chunk));
+            const response = await fetch('/api/tools/redact-quote', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fileName: file.name, base64Data: btoa(binary) })
+            });
+            const payload = await response.json();
+            if (!response.ok || !payload.ok) throw new Error(payload.error || 'הניקוי נכשל');
+            const summary = payload.summary || {};
+            showResult('<strong>הקובץ מוכן.</strong><br>' +
+              'עמודים: ' + (summary.pages || '-') + ' · ' +
+              'אזורי כותרת שנוקו: ' + (summary.top_rects || 0) + ' · ' +
+              'פגיעות טקסט: ' + (summary.text_hits || 0) +
+              '<br><a class="download" href="' + payload.downloadUrl + '">להורדת ה-PDF הנקי</a>');
+          } catch (error) {
+            showResult('<strong>נפלתי על בעיה:</strong> ' + (error.message || error));
+          } finally {
+            button.disabled = false;
+            button.textContent = 'נקה את ההצעה';
+          }
+        });
+      </script>
+    </body>
+  </html>`;
 }
 
 function renderAccountPage(cfg, user, flash = {}) {
@@ -1864,16 +1801,22 @@ app.get('/step1/logout', (req, res) => {
 
 
 app.get('/', (req, res) => {
-  const currentUser = readCurrentSiteUser(req);
-  if (currentUser) {
-    res.redirect('/account');
-    return;
-  }
-
   const cfg = readSiteConfig();
   const error = normalizeText(req.query?.error || '');
   const info = normalizeText(req.query?.info || '');
   res.send(renderEntryPage(cfg, { error, info }));
+});
+
+app.get('/apps/quote-redaction', (req, res) => {
+  const cfg = readSiteConfig();
+  const error = normalizeText(req.query?.error || '');
+  const info = normalizeText(req.query?.info || '');
+  res.send(renderQuoteRedactionPage(cfg, { error, info }));
+});
+
+app.get('/apps/whatsapp-authorized', (req, res) => {
+  res.send(`<!DOCTYPE html>
+  <html lang="he" dir="rtl"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>קבלת שיחות מוואטסאפ</title><style>body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:#eef4ff;color:#111}main{max-width:760px;margin:0 auto;padding:28px 18px 42px}.card{background:#fff;border:1px solid rgba(17,17,17,.08);border-radius:28px;padding:24px;box-shadow:0 24px 60px rgba(30,56,100,.10)}a{color:#526073;text-decoration:none;font-weight:700}h1{font-size:36px;margin:0 0 10px}p{color:#5a6677;line-height:1.75}</style></head><body><main><a href="/">← חזרה לשולחן העבודה</a><section class="card"><div style="font-size:13px;font-weight:800;color:#f96302;margin-bottom:8px;">Concierge Site · בהמשך</div><h1>קבלת שיחות מוואטסאפ עם הרשאה</h1><p>התיקייה הזו מוכנה כמקום שמור לשלב הבא. אחרי שנסיים את כלי ה-PDF, נחבר כאן את זרימת ההרשאות והקבלה מוואטסאפ.</p></section></main></body></html>`);
 });
 
 app.post('/api/auth/register', (req, res) => {
@@ -2099,6 +2042,28 @@ app.get('/downloads/:fileName', (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${safeName.replace(/"/g, '')}"`);
   fs.createReadStream(filePath).pipe(res);
+});
+
+app.post('/api/tools/redact-quote', (req, res) => {
+  try {
+    const fileName = String(req.body?.fileName || '').trim();
+    const base64Data = String(req.body?.base64Data || '').trim();
+
+    if (!fileName || !base64Data) {
+      res.status(400).json({ ok: false, error: 'missing fileName or base64Data' });
+      return;
+    }
+
+    if (!/\.pdf$/i.test(fileName)) {
+      res.status(400).json({ ok: false, error: 'file must be a PDF' });
+      return;
+    }
+
+    const result = runQuoteRedactionJob({ fileName, base64Data });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 app.get('/api/tasks', (req, res) => {

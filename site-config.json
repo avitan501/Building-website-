@@ -1,54 +1,32 @@
 {
-  "title": "Nassau Construction Supply",
-  "subtitle": "Building materials, fast quotes, and clear delivery tracking for every job.",
-  "bg": "#f5f5f5",
+  "title": "Concierge Site",
+  "subtitle": "Nassau Construction workspace for building-material tools and internal functions.",
+  "bg": "#eef3fb",
   "text": "#111111",
   "brand": {
-    "name": "Nassau Construction",
+    "name": "Concierge Site",
     "accent": "#f96302",
     "dark": "#111111",
     "light": "#ffffff"
   },
-  "entryPage": {
-    "eyebrow": "BUILDING MATERIALS",
-    "headline": "Everything your job site needs, in one place.",
-    "subheadline": "Order construction materials, request pricing, compare supplier options, and track delivery from one simple customer portal.",
-    "phoneLoginTitle": "Sign in to order materials",
-    "googleButtonLabel": "Continue with Google",
-    "registerButtonLabel": "Create contractor account",
-    "tiles": [
+  "launcher": {
+    "headline": "שולחן העבודה של Concierge Site",
+    "subheadline": "מוחקים את כל התוכן הישן ועובדים עכשיו כמו שולחן עבודה: כל תיקייה היא פונקציה נפרדת, וכל פונקציה תקבל אחר כך גם דף עצמאי משלה.",
+    "folders": [
       {
-        "title": "Fast material quotes",
-        "content": "Send your list and get pricing support for concrete, lumber, drywall, insulation, finishing materials, and more."
+        "title": "עריכת הצעת מחיר",
+        "description": "העלאת PDF, מחיקת פרטי מוכר ומיתוג, הוספת seller name hide for bidding purposes, והחזרת קובץ נקי להורדה.",
+        "href": "/apps/quote-redaction",
+        "tag": "מוכן לעבודה"
       },
       {
-        "title": "Supplier comparison",
-        "content": "We help compare supplier options so you can buy smarter and keep the project moving."
-      },
-      {
-        "title": "Delivery tracking",
-        "content": "Follow what was ordered, what is on the way, and what already arrived at the site."
-      },
-      {
-        "title": "Built for contractors",
-        "content": "Simple account access for builders, project managers, and repeat customers who need speed and clarity."
+        "title": "קבלת שיחות מוואטסאפ עם הרשאה",
+        "description": "תיקייה שמורה לשלב הבא — חיבור זרימת הרשאה וקבלת שיחות מוואטסאפ.",
+        "href": "/apps/whatsapp-authorized",
+        "tag": "בהמשך"
       }
     ]
   },
-  "sections": [
-    {
-      "title": "What we sell",
-      "content": "Concrete, framing materials, drywall, insulation, roofing supplies, tools, and job-site essentials."
-    },
-    {
-      "title": "How it works",
-      "content": "Send your material request, review the best option, approve the order, and track delivery to your project."
-    }
-  ],
-  "pages": {
-    "materials": {
-      "title": "Materials",
-      "content": "Browse core building material categories and request a quote for your next project."
-    }
-  }
+  "sections": [],
+  "pages": {}
 }

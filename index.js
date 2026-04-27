@@ -836,7 +836,7 @@ function renderBuildFlowControlCenterPage() {
     {
       title: 'WhatsApp assistant',
       status: 'Partial',
-      note: 'Inbound, logs, and BuildFlow sync working. Auto-replies disabled. Draft Inbox V1 DB schema is drafted.',
+      note: 'Inbound, logs, and BuildFlow sync working. Auto-replies disabled. Draft Inbox V1 DB schema and safe UI preview are prepared.',
       rule: 'No auto-send for now. Migration is ready but not applied; blocked on DATABASE_URL / SQL access.'
     },
     {
@@ -907,6 +907,7 @@ function renderBuildFlowControlCenterPage() {
     ['WhatsApp inbound/logs/sync working', 'Working'],
     ['WhatsApp uncontrolled auto-replies disabled', 'Working'],
     ['WhatsApp Draft Inbox V1 DB schema drafted', 'Working'],
+    ['WhatsApp Draft Inbox UI preview prepared', 'Working'],
     ['WhatsApp migration ready but not applied', 'Partial'],
     ['QA bot works', 'Working'],
     ['Integrations planned', 'Working']

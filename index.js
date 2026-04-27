@@ -759,7 +759,215 @@ function buildFlowCheckLiveChecks() {
   };
 }
 
-function renderBuildFlowControlCenterPage() {
+const BUILDFLOW_ADMIN_PASSWORD = 'BuildFlowOwner2800';
+const BUILDFLOW_LIVE_URL = 'https://build-flow-wfl3.vercel.app';
+
+function hasBuildFlowAdminAccess(req) {
+  return String(req.query?.password || '') === BUILDFLOW_ADMIN_PASSWORD;
+}
+
+function withAdminPassword(href, accessPassword = '') {
+  if (!accessPassword) return href;
+  const separator = href.includes('?') ? '&' : '?';
+  return `${href}${separator}password=${encodeURIComponent(accessPassword)}`;
+}
+
+function buildBuildMapRooms(accessPassword = '') {
+  return [
+    {
+      zone: 'Front Door',
+      name: 'Home',
+      purpose: 'Public entry page that explains BuildFlow and routes visitors into the product.',
+      users: 'New visitors, leads, admins',
+      status: 'Live',
+      actions: ['See product positioning', 'Jump to signup', 'Jump to login'],
+      href: `${BUILDFLOW_LIVE_URL}/`,
+      nextStep: 'Keep polishing the landing story and trust signals.'
+    },
+    {
+      zone: 'Front Door',
+      name: 'Signup',
+      purpose: 'Account creation path for new users entering the platform.',
+      users: 'Builders, staff, admins',
+      status: 'Live',
+      actions: ['Create account', 'Enter basic identity details', 'Start onboarding'],
+      href: `${BUILDFLOW_LIVE_URL}/signup`,
+      nextStep: 'Later connect fuller onboarding states and approval rules.'
+    },
+    {
+      zone: 'Front Door',
+      name: 'Login',
+      purpose: 'Entry point for returning users to reach their account tools.',
+      users: 'Builders, staff, admins',
+      status: 'Live',
+      actions: ['Sign in', 'Recover access', 'Continue to dashboard'],
+      href: `${BUILDFLOW_LIVE_URL}/login`,
+      nextStep: 'Keep login flow aligned with production auth rules.'
+    },
+    {
+      zone: 'Main Hall',
+      name: 'Dashboard',
+      purpose: 'Main user workspace after login.',
+      users: 'Builders, staff, admins',
+      status: 'Live',
+      actions: ['See account state', 'Open work areas', 'Review current activity'],
+      href: `${BUILDFLOW_LIVE_URL}/dashboard`,
+      nextStep: 'Expand from base dashboard into deeper project modules.'
+    },
+    {
+      zone: 'Admin Wing',
+      name: 'Admin Users',
+      purpose: 'Manage internal user visibility and admin-side user operations.',
+      users: 'Admins',
+      status: 'Live',
+      actions: ['Review users', 'Check approvals', 'Manage access layout'],
+      href: `${BUILDFLOW_LIVE_URL}/admin/users`,
+      nextStep: 'Polish layout and keep approval actions clean.'
+    },
+    {
+      zone: 'Admin Wing',
+      name: 'WhatsApp Draft Inbox',
+      purpose: 'Review draft WhatsApp items safely before any outbound connection exists.',
+      users: 'Admins, internal staff',
+      status: 'UI Ready',
+      actions: ['Preview drafts', 'Review inbox layout', 'Plan moderation workflow'],
+      href: '',
+      nextStep: 'After safe migration later, connect /admin/whatsapp to real DB data.'
+    },
+    {
+      zone: 'Project Floor',
+      name: 'Projects',
+      purpose: 'Project-level hub for jobs, timelines, and linked material workflows.',
+      users: 'Builders, project managers, admins',
+      status: 'Coming Soon',
+      actions: ['Open project', 'Track scope', 'Connect related modules'],
+      href: '',
+      nextStep: 'Define project shell and navigation states first.'
+    },
+    {
+      zone: 'Project Floor',
+      name: 'Upload Plans',
+      purpose: 'Upload construction plans and supporting files for later AI review.',
+      users: 'Builders, estimators, admins',
+      status: 'Coming Soon',
+      actions: ['Upload files', 'Attach to project', 'Queue for review'],
+      href: '',
+      nextStep: 'Design upload flow, file states, and admin review checkpoints.'
+    },
+    {
+      zone: 'Project Floor',
+      name: 'AI Takeoff',
+      purpose: 'Draft AI-assisted takeoff workspace for quantity extraction and review.',
+      users: 'Estimators, admins',
+      status: 'Blocked',
+      actions: ['Run draft takeoff', 'Inspect confidence', 'Approve results'],
+      href: '',
+      nextStep: 'Unblock after upstream product/data path is ready and approved.'
+    },
+    {
+      zone: 'Project Floor',
+      name: 'Material List',
+      purpose: 'Working list of materials gathered from quotes, plans, and AI drafts.',
+      users: 'Estimators, purchasing, admins',
+      status: 'Coming Soon',
+      actions: ['Review items', 'Group materials', 'Prepare ordering'],
+      href: '',
+      nextStep: 'Define draft list UI and approval states.'
+    },
+    {
+      zone: 'Operations Wing',
+      name: 'Orders',
+      purpose: 'Internal list of saved order records and their current operational status.',
+      users: 'Admins, internal staff',
+      status: 'Live',
+      actions: ['Browse orders', 'Review customer and supplier state', 'Open order details'],
+      href: '/orders',
+      nextStep: 'Later align this with the fuller project/order workflow.'
+    },
+    {
+      zone: 'Operations Wing',
+      name: 'Vendors',
+      purpose: 'Vendor directory and supplier relationship workspace.',
+      users: 'Purchasing, admins',
+      status: 'Coming Soon',
+      actions: ['Review suppliers', 'Compare options', 'Store vendor notes'],
+      href: '',
+      nextStep: 'Create vendor schema and a draft comparison UI.'
+    },
+    {
+      zone: 'Operations Wing',
+      name: 'Clients',
+      purpose: 'Client account and relationship overview area.',
+      users: 'Admins, client-facing staff',
+      status: 'Coming Soon',
+      actions: ['Review client records', 'Track job history', 'Manage communication handoff'],
+      href: '',
+      nextStep: 'Plan the client list layout and profile cards.'
+    },
+    {
+      zone: 'Operations Wing',
+      name: 'Quote Upload',
+      purpose: 'Internal quote upload/redaction workspace for quote intake and prep.',
+      users: 'Admins, estimators',
+      status: 'Live',
+      actions: ['Upload quote PDF', 'Redact seller identity', 'Download cleaned file'],
+      href: '/apps/quote-redaction',
+      nextStep: 'Later connect quote extraction and reviewed material drafting.'
+    },
+    {
+      zone: 'Operations Wing',
+      name: 'Payments',
+      purpose: 'Payment tracking and collection workspace.',
+      users: 'Admins, finance staff',
+      status: 'Blocked',
+      actions: ['Review payment state', 'Track test mode', 'Prepare checkout flow'],
+      href: '',
+      nextStep: 'Keep in test-first mode and wire only after approval.'
+    },
+    {
+      zone: 'Systems Room',
+      name: 'Google Drive',
+      purpose: 'Project file storage and delivery handoff layer.',
+      users: 'Admins, internal staff',
+      status: 'Coming Soon',
+      actions: ['Open folder links', 'Store output files', 'Route approved documents'],
+      href: '',
+      nextStep: 'Connect approved Drive folder flow later.'
+    },
+    {
+      zone: 'Systems Room',
+      name: 'Notifications',
+      purpose: 'Internal and client notification center for workflow updates.',
+      users: 'Admins, staff, later clients',
+      status: 'UI Ready',
+      actions: ['Preview notification states', 'Plan channels', 'Review message rules'],
+      href: '',
+      nextStep: 'Finalize notification templates and delivery controls.'
+    },
+    {
+      zone: 'Systems Room',
+      name: 'Settings',
+      purpose: 'Administrative configuration area for safe product controls.',
+      users: 'Admins',
+      status: 'Coming Soon',
+      actions: ['Review config groups', 'Adjust safe defaults', 'Manage internal options'],
+      href: '',
+      nextStep: 'Define settings sections without touching live infra yet.'
+    },
+    {
+      zone: 'Systems Room',
+      name: 'Control Center',
+      purpose: 'Phone-friendly internal command room for rollout status and blockers.',
+      users: 'Admins',
+      status: 'Live',
+      actions: ['Review status', 'Check blockers', 'Open admin tools'],
+      href: withAdminPassword('/admin/flow-check', accessPassword),
+      nextStep: 'Keep this synced with the real product state and next blockers.'
+    }
+  ];
+}
+
+function renderBuildFlowControlCenterPage(accessPassword = '') {
   const live = buildFlowCheckLiveChecks();
   const checkedAt = live.checkedAt;
   const frontendStatuses = [
@@ -885,6 +1093,7 @@ function renderBuildFlowControlCenterPage() {
     ['Login', 'https://build-flow-wfl3.vercel.app/login'],
     ['Dashboard', 'https://build-flow-wfl3.vercel.app/dashboard'],
     ['Admin Users', 'https://build-flow-wfl3.vercel.app/admin/users'],
+    ['Open Build Map', withAdminPassword('/admin/build-map', accessPassword)],
     ['GitHub repo', 'https://github.com/avitan501/Build-flow'],
     ['Vercel project', 'https://vercel.com/avitanneto-1804s-projects/build-flow-wfl3'],
     ['Supabase project', 'https://supabase.com/dashboard/project/tyefmwjkfwztvpdhtbrn']
@@ -1303,6 +1512,136 @@ function renderBuildFlowControlCenterPage() {
             </div>
           </div>
         </section>
+      </main>
+    </body>
+  </html>`;
+}
+
+function renderBuildMapPage(accessPassword = '') {
+  const checkedAt = new Date().toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+  const rooms = buildBuildMapRooms(accessPassword);
+  const statusCounts = {
+    live: rooms.filter(room => room.status === 'Live').length,
+    uiReady: rooms.filter(room => room.status === 'UI Ready').length,
+    comingSoon: rooms.filter(room => room.status === 'Coming Soon').length,
+    blocked: rooms.filter(room => room.status === 'Blocked').length
+  };
+  const zones = [
+    ['Front Door', 'Visitors enter, sign up, and log in.'],
+    ['Main Hall', 'The main operating hub after login.'],
+    ['Admin Wing', 'Internal-only operating rooms for staff and admins.'],
+    ['Project Floor', 'Future project and takeoff workflows.'],
+    ['Operations Wing', 'Orders, quotes, vendors, clients, and payment operations.'],
+    ['Systems Room', 'Admin controls, notifications, settings, and infrastructure-facing views.']
+  ].map(([zone, note]) => ({
+    zone,
+    note,
+    rooms: rooms.filter(room => room.zone === zone)
+  })).filter(zone => zone.rooms.length);
+
+  const renderBadge = (status) => {
+    const map = {
+      'Live': ['#067647', '#ecfdf3', '#abefc6'],
+      'UI Ready': ['#175cd3', '#eff8ff', '#b2ddff'],
+      'Coming Soon': ['#475467', '#f2f4f7', '#d0d5dd'],
+      'Blocked': ['#b54708', '#fffaeb', '#fedf89']
+    };
+    const [color, bg, border] = map[status] || map['Coming Soon'];
+    return `<span class="badge" style="color:${color};background:${bg};border-color:${border};">${escapeHtml(status)}</span>`;
+  };
+
+  const renderList = (items) => items.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  const renderRoom = (room) => {
+    const href = String(room.href || '').trim();
+    const roomHref = href.startsWith('/') ? withAdminPassword(href, accessPassword) : href;
+    return `
+      <article class="room room-${String(room.status).toLowerCase().replace(/\s+/g, '-')}">
+        <div class="room-top">
+          <div>
+            <div class="room-label">${escapeHtml(room.zone)}</div>
+            <h3>${escapeHtml(room.name)}</h3>
+          </div>
+          ${renderBadge(room.status)}
+        </div>
+        <p class="room-copy">${escapeHtml(room.purpose)}</p>
+        <div class="meta-grid">
+          <div class="meta-box">
+            <div class="meta-k">Who uses it</div>
+            <div class="meta-v">${escapeHtml(room.users)}</div>
+          </div>
+          <div class="meta-box">
+            <div class="meta-k">Next build step</div>
+            <div class="meta-v">${escapeHtml(room.nextStep)}</div>
+          </div>
+        </div>
+        <div class="list-block">
+          <div class="list-title">Key actions</div>
+          <ul>${renderList(room.actions)}</ul>
+        </div>
+        <div class="room-footer">
+          ${roomHref ? `<a class="room-link" href="${escapeHtml(roomHref)}"${/^https?:/i.test(roomHref) ? ' target="_blank" rel="noopener noreferrer"' : ''}>Open page</a>` : '<span class="room-link room-link-muted">No page live yet</span>'}
+        </div>
+      </article>
+    `;
+  };
+
+  return `<!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>BuildFlow Build Map</title>
+      <style>
+        *{box-sizing:border-box} body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#edf4ff 0%,#f9fbff 100%);color:#101828}
+        .page{max-width:1180px;margin:0 auto;padding:16px 12px 36px}.hero,.zone,.summary-card{background:rgba(255,255,255,.96);border:1px solid rgba(16,24,40,.08);border-radius:24px;box-shadow:0 14px 34px rgba(16,24,40,.06)}
+        .hero{padding:18px}.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:#eff8ff;color:#175cd3;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+        h1{margin:10px 0 6px;font-size:30px;line-height:1.03;letter-spacing:-.04em}.copy{margin:0;color:#475467;font-size:14px;line-height:1.65}
+        .hero-actions,.summary,.room-grid{display:grid;grid-template-columns:1fr;gap:12px}.hero-actions{margin-top:14px}.hero-link{display:block;padding:13px 16px;border-radius:16px;text-decoration:none;text-align:center;font-weight:800;font-size:14px;background:#101828;color:#fff}.hero-link.secondary{background:#fff;color:#101828;border:1px solid #d0d5dd}
+        .summary{margin-top:14px}.summary-card{padding:14px}.summary-k{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#667085}.summary-v{margin-top:6px;font-size:24px;font-weight:800}.summary-note{margin-top:6px;color:#667085;font-size:13px;line-height:1.5}
+        .legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.badge{display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;white-space:nowrap}
+        .zone{margin-top:14px;padding:16px}.zone-head{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}.zone-title{margin:0;font-size:20px}.zone-note{margin:0;color:#667085;font-size:13px;line-height:1.55}
+        .room{padding:14px;border-radius:22px;border:1px solid #e4e7ec;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)} .room-live{border-color:#abefc6}.room-ui-ready{border-color:#b2ddff}.room-coming-soon{border-color:#d0d5dd}.room-blocked{border-color:#fedf89}
+        .room-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.room-label{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#667085} h3{margin:6px 0 0;font-size:18px;line-height:1.2}
+        .room-copy{margin:12px 0 0;color:#475467;font-size:14px;line-height:1.6}.meta-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}.meta-box{padding:12px;border-radius:16px;background:#fff;border:1px solid #eaecf0}.meta-k{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#667085}.meta-v{margin-top:6px;color:#101828;font-size:13px;line-height:1.55;font-weight:700}
+        .list-block{margin-top:12px;padding:12px;border-radius:16px;background:#fff;border:1px solid #eaecf0}.list-title{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#667085} ul{margin:8px 0 0 18px;padding:0;color:#475467} li{margin:0 0 6px;line-height:1.5}
+        .room-footer{margin-top:12px}.room-link{display:inline-flex;align-items:center;justify-content:center;padding:11px 14px;border-radius:14px;background:#101828;color:#fff;text-decoration:none;font-weight:800;font-size:13px}.room-link-muted{background:#f2f4f7;color:#667085}
+        @media (min-width:720px){.hero-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.summary{grid-template-columns:repeat(5,minmax(0,1fr))}.room-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.meta-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (min-width:1040px){.room-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+      </style>
+    </head>
+    <body>
+      <main class="page">
+        <section class="hero">
+          <div class="eyebrow">Admin-only · UI map</div>
+          <h1>BuildFlow Build Map</h1>
+          <p class="copy">A mobile-first sketch of the whole BuildFlow website as a building with rooms. This page is UI-only and safe: no database work, no Supabase changes, no WhatsApp connection work, and no infrastructure changes.</p>
+          <div class="hero-actions">
+            <a class="hero-link" href="${escapeHtml(withAdminPassword('/admin/flow-check', accessPassword))}">Open Control Center</a>
+            <a class="hero-link secondary" href="${escapeHtml(withAdminPassword('/admin/build-map', accessPassword))}">Refresh Build Map</a>
+          </div>
+          <div class="legend">
+            ${renderBadge('Live')}
+            ${renderBadge('UI Ready')}
+            ${renderBadge('Coming Soon')}
+            ${renderBadge('Blocked')}
+          </div>
+          <div class="summary">
+            <div class="summary-card"><div class="summary-k">Live rooms</div><div class="summary-v">${statusCounts.live}</div><div class="summary-note">Pages with an existing route or live page link.</div></div>
+            <div class="summary-card"><div class="summary-k">UI Ready</div><div class="summary-v">${statusCounts.uiReady}</div><div class="summary-note">Safe visual previews that are ready before data wiring.</div></div>
+            <div class="summary-card"><div class="summary-k">Coming Soon</div><div class="summary-v">${statusCounts.comingSoon}</div><div class="summary-note">Planned rooms still waiting on the next build phase.</div></div>
+            <div class="summary-card"><div class="summary-k">Blocked</div><div class="summary-v">${statusCounts.blocked}</div><div class="summary-note">Rooms waiting on upstream approval or a safe path.</div></div>
+            <div class="summary-card"><div class="summary-k">Map checked</div><div class="summary-v" style="font-size:16px">${escapeHtml(checkedAt)}</div><div class="summary-note">Current product sketch status snapshot.</div></div>
+          </div>
+        </section>
+        ${zones.map(zone => `
+          <section class="zone">
+            <div class="zone-head">
+              <h2 class="zone-title">${escapeHtml(zone.zone)}</h2>
+              <p class="zone-note">${escapeHtml(zone.note)}</p>
+            </div>
+            <div class="room-grid">${zone.rooms.map(renderRoom).join('')}</div>
+          </section>
+        `).join('')}
       </main>
     </body>
   </html>`;
@@ -2432,12 +2771,21 @@ app.get('/apps/whatsapp-authorized', (req, res) => {
 });
 
 app.get('/admin/flow-check', (req, res) => {
-  if (String(req.query?.password || '') !== 'BuildFlowOwner2800') {
+  if (!hasBuildFlowAdminAccess(req)) {
     res.status(403).send('Access denied');
     return;
   }
 
-  res.send(renderBuildFlowControlCenterPage());
+  res.send(renderBuildFlowControlCenterPage(String(req.query?.password || '')));
+});
+
+app.get('/admin/build-map', (req, res) => {
+  if (!hasBuildFlowAdminAccess(req)) {
+    res.status(403).send('Access denied');
+    return;
+  }
+
+  res.send(renderBuildMapPage(String(req.query?.password || '')));
 });
 
 app.post('/api/auth/register', (req, res) => {

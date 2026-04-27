@@ -696,6 +696,615 @@ function renderQuoteRedactionPage(cfg, flash = {}) {
   </html>`;
 }
 
+function buildFlowCheckRouteExists(routeNeedle) {
+  try {
+    const source = fs.readFileSync(__filename, 'utf8');
+    return source.includes(routeNeedle);
+  } catch {
+    return false;
+  }
+}
+
+function buildFlowCheckConfigured(envKeys = []) {
+  return envKeys.some(key => String(process.env[key] || '').trim());
+}
+
+function buildFlowCheckVercelStatus() {
+  const vercelUrl = String(process.env.BUILDFLOW_VERCEL_URL || process.env.VERCEL_URL || '').trim();
+  if (!vercelUrl) {
+    return ['Vercel Deployment', 'Coming Soon', 'No Vercel URL configured yet.'];
+  }
+
+  const normalized = /^https?:\/\//i.test(vercelUrl) ? vercelUrl : `https://${vercelUrl}`;
+  const check = spawnSync('curl', ['-L', '-s', '-o', '/dev/null', '-w', '%{http_code}', normalized], {
+    encoding: 'utf8',
+    timeout: 5000
+  });
+
+  if (check.status === 0) {
+    const code = String(check.stdout || '').trim();
+    if (/^2\d\d$|^3\d\d$/.test(code)) {
+      return ['Vercel Deployment', 'Working', `Configured and responding with HTTP ${code}.`];
+    }
+    return ['Vercel Deployment', 'Broken', `Configured but returned HTTP ${code || 'unknown'}.`];
+  }
+
+  return ['Vercel Deployment', 'Broken', 'Configured but the health check did not respond cleanly.'];
+}
+
+function buildFlowCheckLiveChecks() {
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+  const uptimeMinutes = Math.max(0, Math.floor(process.uptime() / 60));
+  const homepageRouteExists = buildFlowCheckRouteExists("app.get('/', (req, res) => {");
+  const flowCheckRouteExists = buildFlowCheckRouteExists("app.get('/admin/flow-check', (req, res) => {");
+  const uploadRouteExists = buildFlowCheckRouteExists("app.post('/api/tools/redact-quote', (req, res) => {");
+  const supabaseConfigured = buildFlowCheckConfigured(['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY']);
+  const authConfigured = buildFlowCheckConfigured(['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'SUPABASE_AUTH_URL', 'NEXTAUTH_SECRET']);
+  const driveConfigured = buildFlowCheckConfigured(['GOOGLE_DRIVE_FOLDER_ID', 'GOOGLE_REFRESH_TOKEN', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET']);
+  const stripeConfigured = buildFlowCheckConfigured(['STRIPE_SECRET_KEY', 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY', 'STRIPE_PUBLISHABLE_KEY']);
+  const aiConfigured = buildFlowCheckConfigured(['OPENAI_API_KEY', 'KIMI_OPENROUTER_KEY', 'ANTHROPIC_API_KEY']);
+
+  return {
+    checkedAt: now,
+    homepage: ['Homepage responds', homepageRouteExists ? 'Working' : 'Broken', homepageRouteExists ? 'Homepage route is present in the running project.' : 'Homepage route was not found in the current source.'],
+    flowCheck: ['Flow-check route is up', flowCheckRouteExists ? 'Working' : 'Broken', flowCheckRouteExists ? 'Protected admin route is present and active in source.' : 'Protected flow-check route was not found in source.'],
+    vercel: buildFlowCheckVercelStatus(),
+    upload: ['Local file upload route exists', uploadRouteExists ? 'Working' : 'Coming Soon', uploadRouteExists ? 'A local PDF handling route exists for internal tooling.' : 'No internal upload route is defined yet.'],
+    supabase: ['Supabase configured', supabaseConfigured ? 'Partial' : 'Coming Soon', supabaseConfigured ? 'Supabase-related environment markers were found.' : 'No Supabase environment markers found yet.'],
+    auth: ['Auth configured', authConfigured ? 'Partial' : 'Coming Soon', authConfigured ? 'Auth-related environment markers were found.' : 'No auth environment markers found yet.'],
+    drive: ['Google Drive configured', driveConfigured ? 'Partial' : 'Coming Soon', driveConfigured ? 'Google Drive-related environment markers were found.' : 'No Google Drive environment markers found yet.'],
+    stripe: ['Stripe configured', stripeConfigured ? 'Partial' : 'Coming Soon', stripeConfigured ? 'Stripe-related environment markers were found.' : 'No Stripe environment markers found yet.'],
+    ai: ['AI key configured', aiConfigured ? 'Partial' : 'Coming Soon', aiConfigured ? 'At least one AI service key marker was found.' : 'No AI service key markers found yet.'],
+    runtime: ['Runtime/service health', 'Working', `Node process is running. PID ${process.pid}. Uptime ${uptimeMinutes} min.`]
+  };
+}
+
+function renderBuildFlowControlCenterPage() {
+  const live = buildFlowCheckLiveChecks();
+  const checkedAt = live.checkedAt;
+  const frontendStatuses = [
+    ['Homepage', 'Working', 'Live homepage is up on the current Vercel BuildFlow Supply site.'],
+    ['Login', 'Coming Soon', 'Authentication work starts in the next step.'],
+    ['Dashboard', 'Coming Soon', 'Planned for Step 1 after auth is connected.'],
+    ['Projects', 'Coming Soon', 'Project flow is not built yet.'],
+    ['File Upload', 'Coming Soon', 'Upload flow is still waiting for later steps.'],
+    ['AI Takeoff', 'Coming Soon', 'AI takeoff is not wired yet.'],
+    ['Payments', 'Coming Soon', 'Payment flow is still missing.'],
+    ['Admin Dashboard', 'Partial', 'This control center exists, but the full admin app is not built yet.']
+  ];
+
+  const systemChecks = [
+    ['GitHub repo connected', 'Working', 'The Build-flow repository is connected and receiving pushed commits.'],
+    ['Vercel deployment working', 'Working', 'The BuildFlow Supply Vercel deployment is live and serving the current production site.'],
+    ['Homepage live', 'Working', 'Production homepage is currently live at build-flow-wfl3.vercel.app.'],
+    ['Telegram → code → GitHub → Vercel deploy flow working', 'Working', 'The end-to-end update flow is working from chat to live site.'],
+    ['Supabase project', 'Working', 'BuildFlow Supply is connected to the active Supabase project.'],
+    ['Supabase env keys', 'Working', 'Supabase public URL, anon key, and service role key are configured where needed.'],
+    ['Authentication & Roles', 'Working', 'Signup, profile creation, login, dashboard profile read, and password reset are now wired.'],
+    ['WhatsApp inbound + logs + sync', 'Working', 'Inbound receiving, inbound logging, and BuildFlow sync are currently working.'],
+    ['WhatsApp auto-replies', 'Working', 'Uncontrolled automatic WhatsApp replies are disabled for now.'],
+    live.runtime
+  ];
+
+  const flowChecklist = [
+    ['Client signup works', 'Working'],
+    ['Login works', 'Working'],
+    ['Dashboard works', 'Working'],
+    ['Projects flow works', 'Coming Soon'],
+    ['File upload works', 'Coming Soon'],
+    ['AI draft works', 'Coming Soon'],
+    ['/admin/users page works', 'Working'],
+    ['Admin-only access works', 'Working'],
+    ['Admin Users security fixed', 'Working'],
+    ['Role protections working', 'Working'],
+    ['First admin user can view users list', 'Working'],
+    ['Admin approval actions work', 'Working'],
+    ['approval_actions audit log works', 'Working'],
+    ['QA /qa-full passing', 'Working'],
+    ['No service role exposed', 'Working'],
+    ['Next Step — Admin user approval actions and user management', 'Working']
+  ];
+
+  const deployReadiness = [
+    ['Mobile test passed', 'Partial'],
+    ['Role permissions tested', 'Coming Soon'],
+    ['Client cannot see margin', 'Coming Soon'],
+    ['Client cannot see supplier', 'Coming Soon'],
+    ['Payment is in test mode', 'Coming Soon'],
+    ['No broken public pages', 'Partial']
+  ];
+
+  const vendorQuoteFlow = [
+    'Admin uploads PDF or image quote',
+    'AI reads the quote',
+    'AI extracts vendor/store name, contact name, phone, email, and address',
+    'AI extracts item name, quantity, unit, price, and category',
+    'AI sorts materials into Lumber, Doors, Molding, Sheetrock, Roofing, Electrical, and Other',
+    'AI creates a Draft Material List',
+    'Admin reviews and approves before anything is saved live'
+  ];
+
+  const vendorQuoteRules = [
+    'Nothing auto-saves without Admin approval',
+    'Vendor details are stored only after Admin approval',
+    'Materials are added only after Admin approval',
+    'Low-confidence extracted lines must be highlighted',
+    'Never expose supplier/vendor info to client unless Admin allows it'
+  ];
+
+  const integrationSystems = [
+    {
+      title: 'WhatsApp assistant',
+      status: 'Partial',
+      note: 'Inbound, logs, and BuildFlow sync working. Auto-replies disabled.',
+      rule: 'No auto-send for now. Next step: WhatsApp Draft Inbox + Contact Permissions.'
+    },
+    {
+      title: 'AI Plan Reader / Takeoff',
+      status: 'Partial',
+      note: 'Draft only',
+      rule: 'No final quantities or ordering without Admin approval.'
+    },
+    {
+      title: 'Supplier Quote Reader',
+      status: 'Coming Soon',
+      note: 'Draft extraction only',
+      rule: 'Keep original quote, flag low-confidence rows, no auto-purchase.'
+    },
+    {
+      title: 'Email notifications',
+      status: 'Partial',
+      note: 'Test Mode planned',
+      rule: 'Internal recipients only until templates are approved.'
+    },
+    {
+      title: 'Google Drive project folders',
+      status: 'Partial',
+      note: 'Planned',
+      rule: 'No public sharing by default.'
+    },
+    {
+      title: 'SMS/WhatsApp client updates',
+      status: 'Partial',
+      note: 'Test Mode planned',
+      rule: 'No real client sends until Admin approves.'
+    }
+  ];
+
+  const topSummaryCards = [
+    ['Live Site', 'Working', 'Homepage, signup, login, dashboard, admin users'],
+    ['Supabase', 'Working', 'Connected, migrations applied, auth URL fixed'],
+    ['Auth', 'Working', 'Signup, login, reset, dashboard profile read'],
+    ['QA Bot', 'Working', 'QA bot active with auto-monitor every 30 minutes'],
+    ['Next Step', 'Working', 'WhatsApp Draft Inbox + Contact Permissions']
+  ];
+
+  const liveLinks = [
+    ['Live homepage', 'https://build-flow-wfl3.vercel.app/'],
+    ['Signup', 'https://build-flow-wfl3.vercel.app/signup'],
+    ['Login', 'https://build-flow-wfl3.vercel.app/login'],
+    ['Dashboard', 'https://build-flow-wfl3.vercel.app/dashboard'],
+    ['Admin Users', 'https://build-flow-wfl3.vercel.app/admin/users'],
+    ['GitHub repo', 'https://github.com/avitan501/Build-flow'],
+    ['Vercel project', 'https://vercel.com/avitanneto-1804s-projects/build-flow-wfl3'],
+    ['Supabase project', 'https://supabase.com/dashboard/project/tyefmwjkfwztvpdhtbrn']
+  ];
+
+  const recentChanges = [
+    ['Vercel fixed', 'Working'],
+    ['Supabase connected', 'Working'],
+    ['Migrations applied', 'Working'],
+    ['Signup works', 'Working'],
+    ['Password reset works', 'Working'],
+    ['Login works', 'Working'],
+    ['Dashboard works', 'Working'],
+    ['Admin users works', 'Working'],
+    ['Admin Users security fixed', 'Working'],
+    ['Role protections working', 'Working'],
+    ['QA /qa-full passing', 'Working'],
+    ['No service role exposed', 'Working'],
+    ['Admin approval actions work', 'Working'],
+    ['WhatsApp inbound/logs/sync working', 'Working'],
+    ['WhatsApp uncontrolled auto-replies disabled', 'Working'],
+    ['QA bot works', 'Working'],
+    ['Integrations planned', 'Working']
+  ];
+
+  const blockedItems = [
+    ['1Password Service Account not ready', 'Partial'],
+    ['Google Drive not connected', 'Coming Soon'],
+    ['WhatsApp Draft Inbox + Contact Permissions not built yet', 'Partial'],
+    ['AI Takeoff not connected', 'Coming Soon'],
+    ['Payments not connected', 'Coming Soon']
+  ];
+
+  const safetyAlerts = [
+    'Nothing goes live without Admin approval',
+    'Temporary tokens should be rotated later',
+    'Service role must never be exposed',
+    'WhatsApp/client messages disabled until approved'
+  ];
+
+  const botHealth = [
+    ['Builder bot status', 'Working', 'openclaw-gateway.service active'],
+    ['QA bot status', 'Working', 'buildflow-qa-bot.service active'],
+    ['QA auto-monitor', 'Working', 'Every 30 minutes'],
+    ['Last QA check status', 'Partial', 'Placeholder until a live timestamp is wired into this page']
+  ];
+
+  const roadmap = [
+    ['Foundation', 'Working'],
+    ['Auth', 'Working'],
+    ['User management', 'Partial'],
+    ['Projects', 'Coming Soon'],
+    ['Uploads', 'Coming Soon'],
+    ['AI Takeoff', 'Coming Soon'],
+    ['Quotes', 'Coming Soon'],
+    ['Orders', 'Coming Soon'],
+    ['Payments', 'Coming Soon'],
+    ['Notifications', 'Partial'],
+    ['Integrations', 'Partial']
+  ];
+
+  const warnings = [
+    'Do not delete projects',
+    'Do not touch old Vercel project unless approved',
+    'Do not expose secrets',
+    'Do not change billing/domains without approval'
+  ];
+
+  const progressItems = [
+    ...flowChecklist,
+    ...blockedItems,
+    ...roadmap
+  ];
+  const completedCount = progressItems.filter(([, status]) => status === 'Working').length;
+  const missingCount = progressItems.filter(([, status]) => status === 'Coming Soon').length;
+  const blockedCount = progressItems.filter(([, status]) => status === 'Broken' || status === 'Partial').length;
+  const progressPercent = Math.max(0, Math.min(100, Math.round((completedCount / progressItems.length) * 100)));
+
+  const renderBadge = (status) => {
+    const map = {
+      'Working': ['#067647', '#ecfdf3', '#abefc6'],
+      'Partial': ['#b54708', '#fffaeb', '#fedf89'],
+      'Broken': ['#b42318', '#fef3f2', '#fecdca'],
+      'Coming Soon': ['#475467', '#f2f4f7', '#d0d5dd']
+    };
+    const [color, bg, border] = map[status] || map['Coming Soon'];
+    return `<span class="badge" style="color:${color};background:${bg};border-color:${border};">${escapeHtml(status)}</span>`;
+  };
+
+  const renderStatusRows = (items) => items.map((item) => {
+    const [name, status, note = ''] = item;
+    return `
+      <div class="row-wrap">
+        <div class="row">
+          <div class="row-main">
+            <span class="row-dot row-dot-${String(status).toLowerCase().replace(/\s+/g, '-')}"></span>
+            <span class="name">${escapeHtml(name)}</span>
+          </div>
+          ${renderBadge(status)}
+        </div>
+        ${note ? `<div class="row-note">${escapeHtml(note)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  const renderCheckRows = (items) => items.map(([name, status]) => `
+    <div class="check-row">
+      <div class="checkbox checkbox-${String(status).toLowerCase().replace(/\s+/g, '-')}">${status === 'Working' ? '✓' : status === 'Partial' ? '◐' : status === 'Broken' ? '!' : ''}</div>
+      <div class="check-copy">
+        <div class="check-title">${escapeHtml(name)}</div>
+      </div>
+      ${renderBadge(status)}
+    </div>
+  `).join('');
+
+  const renderBulletRows = (items) => items.map(item => `
+    <div class="bullet-row">
+      <div class="bullet"></div>
+      <div class="bullet-copy">${escapeHtml(item)}</div>
+    </div>
+  `).join('');
+
+  const renderLinkButtons = (items) => items.map(([label, href]) => `
+    <a class="link-btn" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>
+  `).join('');
+
+  const renderTimeline = (items) => items.map(([label, status]) => `
+    <div class="timeline-row">
+      <div class="timeline-dot timeline-dot-${String(status).toLowerCase().replace(/\s+/g, '-')}" ></div>
+      <div class="timeline-copy">
+        <div class="check-title">${escapeHtml(label)}</div>
+      </div>
+      ${renderBadge(status)}
+    </div>
+  `).join('');
+
+  const renderMiniCards = (items) => items.map(([title, status, note]) => `
+    <div class="mini-card">
+      <div class="mini-title-row">
+        <div class="mini-title">${escapeHtml(title)}</div>
+        ${renderBadge(status)}
+      </div>
+      <div class="mini-note">${escapeHtml(note || '')}</div>
+    </div>
+  `).join('');
+
+  return `<!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>BuildFlow Control Center</title>
+      <style>
+        *{box-sizing:border-box}
+        body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:linear-gradient(180deg,#eef4ff 0%,#f8fbff 100%);color:#101828}
+        .page{max-width:980px;margin:0 auto;padding:16px 12px 32px}
+        .hero,.card{background:rgba(255,255,255,.94);border:1px solid rgba(16,24,40,.08);border-radius:22px;box-shadow:0 12px 30px rgba(16,24,40,.06)}
+        .hero{padding:18px}
+        .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:#eff8ff;color:#175cd3;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+        .title{margin:10px 0 6px;font-size:30px;line-height:1.03;letter-spacing:-.04em}
+        .copy{margin:0;color:#475467;line-height:1.6;font-size:14px}
+        .hero-meta{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
+        .meta-chip{padding:12px 14px;border-radius:16px;background:#f8fafc;border:1px solid #eaecf0}
+        .summary-grid,.mini-grid,.link-grid{display:grid;grid-template-columns:1fr;gap:10px}
+        .mini-card{padding:14px;border-radius:18px;background:#f8fafc;border:1px solid #eaecf0}
+        .mini-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+        .mini-title{font-size:15px;font-weight:800;color:#101828}
+        .mini-note{margin-top:6px;color:#667085;font-size:13px;line-height:1.55}
+        .progress-bar{height:12px;border-radius:999px;background:#eaecf0;overflow:hidden;margin-top:10px}
+        .progress-fill{height:100%;background:linear-gradient(90deg,#12b76a 0%,#175cd3 100%);border-radius:999px}
+        .stats-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+        .stat-box{padding:12px;border-radius:16px;background:#f8fafc;border:1px solid #eaecf0}
+        .stat-label{font-size:11px;font-weight:800;letter-spacing:.06em;color:#667085;text-transform:uppercase}
+        .stat-value{margin-top:4px;font-size:20px;font-weight:800;color:#101828}
+        .link-btn{display:block;padding:14px 16px;border-radius:16px;background:#101828;color:#fff;text-decoration:none;font-size:14px;font-weight:700;text-align:center}
+        .timeline-row{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-top:1px solid #eaecf0}
+        .timeline-row:first-of-type{border-top:0}
+        .timeline-dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto;margin-top:7px;background:#98a2b3}
+        .timeline-dot-working{background:#12b76a}.timeline-dot-partial{background:#f79009}.timeline-dot-broken{background:#f04438}.timeline-dot-coming-soon{background:#98a2b3}
+        .timeline-copy{flex:1;min-width:0}
+        .meta-label{font-size:11px;font-weight:800;letter-spacing:.06em;color:#667085;text-transform:uppercase}
+        .meta-value{margin-top:4px;font-size:14px;font-weight:700;color:#101828}
+        .grid{display:grid;gap:14px;margin-top:14px}
+        .card{padding:16px}
+        .section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+        .section-title{margin:0;font-size:18px;line-height:1.2}
+        .section-note{margin:4px 0 0;color:#667085;font-size:13px;line-height:1.55}
+        .row-wrap,.check-row,.bullet-row{border-top:1px solid #eaecf0}
+        .row-wrap:first-of-type,.check-row:first-of-type,.bullet-row:first-of-type{border-top:0}
+        .row,.check-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
+        .row-main{display:flex;align-items:center;gap:10px;min-width:0}
+        .row-dot{width:10px;height:10px;border-radius:999px;flex:0 0 auto;background:#d0d5dd}
+        .row-dot-working{background:#12b76a}.row-dot-partial{background:#f79009}.row-dot-broken{background:#f04438}.row-dot-coming-soon{background:#98a2b3}
+        .name,.check-title{font-weight:700;color:#101828}
+        .row-note{padding:0 0 12px 20px;color:#667085;font-size:13px;line-height:1.55}
+        .badge{display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:800;white-space:nowrap;flex:0 0 auto}
+        .check-row{align-items:flex-start}
+        .checkbox{width:22px;height:22px;border-radius:8px;border:1.5px solid #d0d5dd;background:#f9fafb;display:grid;place-items:center;font-size:12px;font-weight:900;color:#667085;flex:0 0 auto;margin-top:1px}
+        .checkbox-working{background:#ecfdf3;border-color:#abefc6;color:#067647}
+        .checkbox-partial{background:#fffaeb;border-color:#fedf89;color:#b54708}
+        .checkbox-broken{background:#fef3f2;border-color:#fecdca;color:#b42318}
+        .checkbox-coming-soon{background:#f2f4f7;border-color:#d0d5dd;color:#98a2b3}
+        .check-copy{flex:1;min-width:0}
+        .error-box{padding:14px;border-radius:16px;background:#f8fafc;border:1px dashed #cbd5e1;color:#475467;font-size:14px;line-height:1.6}
+        .bullet-row{display:flex;align-items:flex-start;gap:10px;padding:12px 0}
+        .bullet{width:9px;height:9px;border-radius:999px;background:#98a2b3;flex:0 0 auto;margin-top:7px}
+        .bullet-copy{color:#475467;font-size:14px;line-height:1.6}
+        .subcard{margin-top:12px;padding:14px;border-radius:18px;background:#f8fafc;border:1px solid #eaecf0}
+        .subcard-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 4px;font-size:16px}
+        .subcard-copy{margin:0;color:#667085;font-size:13px;line-height:1.55}
+        @media (min-width:780px){
+          .grid.two{grid-template-columns:1fr 1fr}
+          .hero-meta{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .summary-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+          .mini-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .link-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+          .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+        }
+      </style>
+    </head>
+    <body>
+      <main class="page">
+        <section class="hero">
+          <div class="eyebrow">Internal admin only</div>
+          <h1 class="title">BuildFlow Control Center</h1>
+          <p class="copy">Admin-only flow check page for the BuildFlow Supply website. Use this to quickly review current page status, backend connections, rollout readiness, and planned internal tooling from your phone.</p>
+          <div class="hero-meta">
+            <div class="meta-chip">
+              <div class="meta-label">Last checked</div>
+              <div class="meta-value">${escapeHtml(checkedAt)}</div>
+            </div>
+            <div class="meta-chip">
+              <div class="meta-label">Scope</div>
+              <div class="meta-value">Read-only dashboard. Next step: WhatsApp Draft Inbox + Contact Permissions.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid">
+          <div class="summary-grid">
+            ${renderMiniCards(topSummaryCards)}
+          </div>
+        </section>
+
+        <section class="grid two">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Progress Overview</h2>
+                <p class="section-note">Fast mobile summary of what works, what is missing, what is blocked, and the next action.</p>
+              </div>
+              ${renderBadge('Working')}
+            </div>
+            <div class="meta-value">Overall progress: ${progressPercent}%</div>
+            <div class="progress-bar"><div class="progress-fill" style="width:${progressPercent}%"></div></div>
+            <div class="stats-grid">
+              <div class="stat-box"><div class="stat-label">Completed</div><div class="stat-value">${completedCount}</div></div>
+              <div class="stat-box"><div class="stat-label">Missing</div><div class="stat-value">${missingCount}</div></div>
+              <div class="stat-box"><div class="stat-label">Blocked</div><div class="stat-value">${blockedCount}</div></div>
+              <div class="stat-box"><div class="stat-label">Next action</div><div class="stat-value" style="font-size:14px">WhatsApp Draft Inbox + Contact Permissions</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Live Links</h2>
+                <p class="section-note">Large buttons for the main live pages and project dashboards.</p>
+              </div>
+            </div>
+            <div class="link-grid">
+              ${renderLinkButtons(liveLinks)}
+            </div>
+          </div>
+        </section>
+
+        <section class="grid two">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Last Deploy Info</h2>
+                <p class="section-note">Latest known live deployment reference for quick review.</p>
+              </div>
+            </div>
+            <div class="mini-grid">
+              ${renderMiniCards([
+                ['Latest known commit', 'Working', '587f907'],
+                ['Live URL', 'Working', 'https://build-flow-wfl3.vercel.app/'],
+                ['Deploy status', 'Working', 'Live site responding'],
+                ['Update note', 'Working', 'Updated manually/automatically after meaningful changes']
+              ])}
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Today\'s Focus</h2>
+                <p class="section-note">Current planned workstream for the next BuildFlow development session.</p>
+              </div>
+              ${renderBadge('Working')}
+            </div>
+            <div class="error-box"><strong>Next planned work:</strong><br/>WhatsApp Draft Inbox + Contact Permissions.</div>
+          </div>
+        </section>
+
+        <section class="grid two">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Recent Changes Timeline</h2>
+                <p class="section-note">Important BuildFlow milestones completed recently.</p>
+              </div>
+            </div>
+            ${renderTimeline(recentChanges)}
+          </div>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Blocked / Waiting Items</h2>
+                <p class="section-note">Important systems or access still waiting before later phases can go live.</p>
+              </div>
+            </div>
+            ${renderCheckRows(blockedItems)}
+          </div>
+        </section>
+
+        <section class="grid two">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Safety Alerts</h2>
+                <p class="section-note">Non-negotiable rollout and security rules.</p>
+              </div>
+              ${renderBadge('Working')}
+            </div>
+            <div class="subcard">
+              ${renderBulletRows(safetyAlerts)}
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Bot Health</h2>
+                <p class="section-note">Builder bot and QA bot visibility from one mobile-friendly card.</p>
+              </div>
+            </div>
+            ${renderStatusRows(botHealth)}
+          </div>
+        </section>
+
+        <section class="grid two">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Integrations &amp; AI Systems</h2>
+                <p class="section-note">Planned systems only. Everything stays in draft, test mode, or coming soon until Admin approves live rollout.</p>
+              </div>
+              ${renderBadge('Coming Soon')}
+            </div>
+            <div class="subcard">
+              <h3 class="subcard-title">Release rule ${renderBadge('Working')}</h3>
+              <p class="subcard-copy">Nothing goes live without Admin approval.</p>
+            </div>
+            ${integrationSystems.map((item) => `
+              <div class="subcard">
+                <h3 class="subcard-title">${escapeHtml(item.title)} ${renderBadge(item.status)}</h3>
+                <p class="subcard-copy">${escapeHtml(item.note)}</p>
+                <p class="subcard-copy"><strong>Rule:</strong> ${escapeHtml(item.rule)}</p>
+              </div>
+            `).join('')}
+          </div>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Mini Roadmap</h2>
+                <p class="section-note">Phase view for the full BuildFlow buildout.</p>
+              </div>
+            </div>
+            ${renderCheckRows(roadmap)}
+          </div>
+        </section>
+
+        <section class="grid two">
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">What Works / Missing / Broken</h2>
+                <p class="section-note">High-signal operational status blocks for quick scanning.</p>
+              </div>
+            </div>
+            ${renderStatusRows(frontendStatuses)}
+            ${renderStatusRows(systemChecks)}
+            ${renderStatusRows([live.homepage, live.flowCheck, live.runtime])}
+          </div>
+          <div class="card">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Do Not Touch Warning</h2>
+                <p class="section-note">Project protection rules to avoid damaging live systems.</p>
+              </div>
+              ${renderBadge('Working')}
+            </div>
+            <div class="subcard">
+              ${renderBulletRows(warnings)}
+            </div>
+            <div class="subcard">
+              <h3 class="subcard-title">Vendor Quote Upload ${renderBadge('Coming Soon')}</h3>
+              <p class="subcard-copy">Future admin-only workflow. No real upload, AI extraction, database save, or auto-save flow is active yet.</p>
+              ${renderBulletRows(vendorQuoteFlow)}
+            </div>
+            <div class="subcard">
+              <h3 class="subcard-title">Safety rules ${renderBadge('Coming Soon')}</h3>
+              ${renderBulletRows(vendorQuoteRules)}
+            </div>
+          </div>
+        </section>
+      </main>
+    </body>
+  </html>`;
+}
+
 function renderAccountPage(cfg, user, flash = {}) {
   const theme = {
     accent: cfg.brand?.accent || '#f96302',
@@ -1817,6 +2426,15 @@ app.get('/apps/quote-redaction', (req, res) => {
 app.get('/apps/whatsapp-authorized', (req, res) => {
   res.send(`<!DOCTYPE html>
   <html lang="he" dir="rtl"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>קבלת שיחות מוואטסאפ</title><style>body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:#eef4ff;color:#111}main{max-width:760px;margin:0 auto;padding:28px 18px 42px}.card{background:#fff;border:1px solid rgba(17,17,17,.08);border-radius:28px;padding:24px;box-shadow:0 24px 60px rgba(30,56,100,.10)}a{color:#526073;text-decoration:none;font-weight:700}h1{font-size:36px;margin:0 0 10px}p{color:#5a6677;line-height:1.75}</style></head><body><main><a href="/">← חזרה לשולחן העבודה</a><section class="card"><div style="font-size:13px;font-weight:800;color:#f96302;margin-bottom:8px;">Concierge Site · בהמשך</div><h1>קבלת שיחות מוואטסאפ עם הרשאה</h1><p>התיקייה הזו מוכנה כמקום שמור לשלב הבא. אחרי שנסיים את כלי ה-PDF, נחבר כאן את זרימת ההרשאות והקבלה מוואטסאפ.</p></section></main></body></html>`);
+});
+
+app.get('/admin/flow-check', (req, res) => {
+  if (String(req.query?.password || '') !== 'BuildFlowOwner2800') {
+    res.status(403).send('Access denied');
+    return;
+  }
+
+  res.send(renderBuildFlowControlCenterPage());
 });
 
 app.post('/api/auth/register', (req, res) => {

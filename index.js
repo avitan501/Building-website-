@@ -836,8 +836,8 @@ function renderBuildFlowControlCenterPage() {
     {
       title: 'WhatsApp assistant',
       status: 'Partial',
-      note: 'Inbound, logs, and BuildFlow sync working. Auto-replies disabled.',
-      rule: 'No auto-send for now. Next step: WhatsApp Draft Inbox + Contact Permissions.'
+      note: 'Inbound, logs, and BuildFlow sync working. Auto-replies disabled. Draft Inbox V1 DB schema is drafted.',
+      rule: 'No auto-send for now. Migration is ready but not applied; blocked on DATABASE_URL / SQL access.'
     },
     {
       title: 'AI Plan Reader / Takeoff',
@@ -876,7 +876,7 @@ function renderBuildFlowControlCenterPage() {
     ['Supabase', 'Working', 'Connected, migrations applied, auth URL fixed'],
     ['Auth', 'Working', 'Signup, login, reset, dashboard profile read'],
     ['QA Bot', 'Working', 'QA bot active with auto-monitor every 30 minutes'],
-    ['Next Step', 'Working', 'WhatsApp Draft Inbox + Contact Permissions']
+    ['Next Step', 'Working', 'Provide DATABASE_URL or use another safe SQL execution method']
   ];
 
   const liveLinks = [
@@ -906,6 +906,8 @@ function renderBuildFlowControlCenterPage() {
     ['Admin approval actions work', 'Working'],
     ['WhatsApp inbound/logs/sync working', 'Working'],
     ['WhatsApp uncontrolled auto-replies disabled', 'Working'],
+    ['WhatsApp Draft Inbox V1 DB schema drafted', 'Working'],
+    ['WhatsApp migration ready but not applied', 'Partial'],
     ['QA bot works', 'Working'],
     ['Integrations planned', 'Working']
   ];
@@ -913,7 +915,7 @@ function renderBuildFlowControlCenterPage() {
   const blockedItems = [
     ['1Password Service Account not ready', 'Partial'],
     ['Google Drive not connected', 'Coming Soon'],
-    ['WhatsApp Draft Inbox + Contact Permissions not built yet', 'Partial'],
+    ['WhatsApp migration blocked on DATABASE_URL / SQL access', 'Partial'],
     ['AI Takeoff not connected', 'Coming Soon'],
     ['Payments not connected', 'Coming Soon']
   ];
@@ -1118,7 +1120,7 @@ function renderBuildFlowControlCenterPage() {
             </div>
             <div class="meta-chip">
               <div class="meta-label">Scope</div>
-              <div class="meta-value">Read-only dashboard. Next step: WhatsApp Draft Inbox + Contact Permissions.</div>
+              <div class="meta-value">Read-only dashboard. Next step: provide DATABASE_URL or use another safe SQL execution method.</div>
             </div>
           </div>
         </section>
@@ -1144,7 +1146,7 @@ function renderBuildFlowControlCenterPage() {
               <div class="stat-box"><div class="stat-label">Completed</div><div class="stat-value">${completedCount}</div></div>
               <div class="stat-box"><div class="stat-label">Missing</div><div class="stat-value">${missingCount}</div></div>
               <div class="stat-box"><div class="stat-label">Blocked</div><div class="stat-value">${blockedCount}</div></div>
-              <div class="stat-box"><div class="stat-label">Next action</div><div class="stat-value" style="font-size:14px">WhatsApp Draft Inbox + Contact Permissions</div></div>
+              <div class="stat-box"><div class="stat-label">Next action</div><div class="stat-value" style="font-size:14px">Provide DATABASE_URL or choose another safe SQL execution method</div></div>
             </div>
           </div>
           <div class="card">
@@ -1185,7 +1187,7 @@ function renderBuildFlowControlCenterPage() {
               </div>
               ${renderBadge('Working')}
             </div>
-            <div class="error-box"><strong>Next planned work:</strong><br/>WhatsApp Draft Inbox + Contact Permissions.</div>
+            <div class="error-box"><strong>Next planned work:</strong><br/>Provide full postgresql:// connection string or choose another safe SQL execution method.</div>
           </div>
         </section>
 
